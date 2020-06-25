@@ -56,9 +56,32 @@ def make_faceon(cop, this_g_cood, this_g_mass, this_g_vel):
     return new
 
 
+def ndix_unique(x):
 
-def extract_subfind_info(fname='data/flares.hdf5', inp='FLARES', 
-                         properties = {'properties': ['MassType'], 
+    """
+    From "https://stackoverflow.com/questions/54734545/indices-of-unique-values-in-n-dimensional-array?noredirect=1&lq=1"
+
+    Returns an N-dimensional array of indices
+    of the unique values in x
+    ----------
+    x: np.array
+       Array with 1 dimension
+    Returns
+    -------
+    - 1D-array of sorted unique values
+    - Array of arrays. Each array contains the indices where a
+      given value in x is found
+    """
+
+    ix = np.argsort(x)
+    u, ix_u = np.unique(x[ix], return_index=True)
+    ix_ndim = np.unravel_index(ix, x.shape)
+    ix_ndim = np.c_[ix_ndim] if x.ndim > 1 else ix
+    return u, np.split(ix_ndim, ix_u[1:])
+
+
+def extract_subfind_info(fname='data/flares.hdf5', inp='FLARES',
+                         properties = {'properties': ['MassType'],
                                        'conv_factor': [1e10],
                                        'save_str': ['MassType']},
                          overwrite=False, threads=8, verbose=False):
@@ -86,14 +109,14 @@ def extract_subfind_info(fname='data/flares.hdf5', inp='FLARES',
             save_str = properties['save_str']
 
             for _prop,_conv,_save in zip(props,conv_factor,save_str):
-            
+
                 if (fl._check_hdf5('%s/%s/Subhalo/%s'%(halo,tag,_prop)) is False) |\
                          (overwrite == True):
 
                     _arr = E.read_array("SUBFIND", halodir, tag,
                                         "/Subhalo/%s"%_prop,
                                         numThreads=threads, noH=True) * _conv
-   
+
 
                     fl.create_dataset(_arr[indices[halo][tag].astype(int)], _save,
                                       '%s/%s/Galaxy/'%(halo,tag), overwrite=True, verbose=verbose)
@@ -145,11 +168,12 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
     a = E.read_header('SUBFIND', sim, tag, 'ExpansionFactor')
 
     ## Galaxy global properties
-    M200 = E.read_array('SUBFIND', sim, tag, 'FOF/Group_M_Crit200', numThreads=4, noH=True, physicalUnits=True)*1e10
-    M500 = E.read_array('SUBFIND', sim, tag, '/FOF/Group_M_Crit500', numThreads=4, noH=True, physicalUnits=True)*1e10
-    M2500 = E.read_array('SUBFIND', sim, tag, '/FOF/Group_M_Crit2500', numThreads=4, noH=True, physicalUnits=True)*1e10
-    SubhaloMass = E.read_array('SUBFIND', sim, tag, '/Subhalo/Mass', numThreads=4, noH=True, physicalUnits=True)*1e10
-    mstar = E.read_array('SUBFIND', sim, tag, '/Subhalo/ApertureMeasurements/Mass/030kpc', numThreads=4, noH=True, physicalUnits=True)[:,4]*1e10
+    M200 = E.read_array('SUBFIND', sim, tag, 'FOF/Group_M_Crit200', numThreads=4, noH=True, physicalUnits=True)
+    M500 = E.read_array('SUBFIND', sim, tag, '/FOF/Group_M_Crit500', numThreads=4, noH=True, physicalUnits=True)
+    M2500 = E.read_array('SUBFIND', sim, tag, '/FOF/Group_M_Crit2500', numThreads=4, noH=True, physicalUnits=True)
+    SubhaloMass = E.read_array('SUBFIND', sim, tag, '/Subhalo/Mass', numThreads=4, noH=True, physicalUnits=True)
+    Maperture = E.read_array('SUBFIND', sim, tag, '/Subhalo/ApertureMeasurements/Mass/030kpc', numThreads=4, noH=True, physicalUnits=True)
+    mstar = Maperture[:,4]
     sgrpno = E.read_array('SUBFIND', sim, tag, '/Subhalo/SubGroupNumber', numThreads=4)
     grpno = E.read_array('SUBFIND', sim, tag, '/Subhalo/GroupNumber', numThreads=4)
     vel = E.read_array('SUBFIND', sim, tag, '/Subhalo/Velocity', noH=True, physicalUnits=True, numThreads=4)
@@ -161,7 +185,7 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
         indices = np.where(np.logical_and(mstar >= 10**7., np.sqrt(np.sum((cop-cen)**2, axis = 1))<=fl.radius) == True)[0]
 
     else:
-        indices = np.where(mstar >= 10**7.)[0]
+        indices = np.where(mstar >= 10**7.2)[0]
 
     cop = E.read_array('SUBFIND', sim, tag, '/Subhalo/CentreOfPotential', noH=True, physicalUnits=True, numThreads=4)
     sfr_inst =  E.read_array('SUBFIND', sim, tag, '/Subhalo/ApertureMeasurements/SFR/030kpc', numThreads=4, noH=True, physicalUnits=True)
@@ -173,8 +197,8 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
     sp_grpn = E.read_array('PARTDATA', sim, tag, '/PartType4/GroupNumber', numThreads=4)
 
 
-    sp_mass = E.read_array('PARTDATA', sim, tag, '/PartType4/Mass', noH=True, physicalUnits=True, numThreads=4) * 1e10
-    sp_mass_init = E.read_array('PARTDATA', sim, tag, '/PartType4/InitialMass', noH=True, physicalUnits=True, numThreads=4) * 1e10
+    sp_mass = E.read_array('PARTDATA', sim, tag, '/PartType4/Mass', noH=True, physicalUnits=True, numThreads=4)
+    sp_mass_init = E.read_array('PARTDATA', sim, tag, '/PartType4/InitialMass', noH=True, physicalUnits=True, numThreads=4)
     sp_smooth_Z = E.read_array('PARTDATA', sim, tag, '/PartType4/SmoothedMetallicity', numThreads=4)
     sp_Z = E.read_array('PARTDATA', sim, tag, '/PartType4/Metallicity', numThreads=4)
     sp_vel = E.read_array('PARTDATA', sim, tag, '/PartType4/Velocity', noH=True, physicalUnits=True, numThreads=4)
@@ -185,12 +209,28 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
 
     gp_sgrpn = E.read_array('PARTDATA', sim, tag, '/PartType0/SubGroupNumber', numThreads=4)
     gp_grpn = E.read_array('PARTDATA', sim, tag, '/PartType0/GroupNumber', numThreads=4)
-    gp_mass = E.read_array('PARTDATA', sim, tag, '/PartType0/Mass', noH=True, physicalUnits=True, numThreads=4) * 1e10
+    gp_mass = E.read_array('PARTDATA', sim, tag, '/PartType0/Mass', noH=True, physicalUnits=True, numThreads=4)
     gp_smooth_Z = E.read_array('PARTDATA', sim, tag, '/PartType0/SmoothedMetallicity', numThreads=4)
     gp_Z = E.read_array('PARTDATA', sim, tag, '/PartType0/Metallicity', numThreads=4)
     gp_vel = E.read_array('PARTDATA', sim, tag, '/PartType0/Velocity', noH=True, physicalUnits=True, numThreads=4)
     gp_sl = E.read_array('PARTDATA', sim, tag, '/PartType0/SmoothingLength', noH=True, physicalUnits=True, numThreads=4)
     gp_ids = E.read_array('PARTDATA', sim, tag, '/PartType0/ParticleIDs', noH=True, physicalUnits=True, numThreads=4)
+
+
+    #For identifying spurious galaxies and remerging them to the parent
+    #First method: just using the EAGLE method of merging them
+    #to the nearby subhalo
+    #Second method: use Will's criterion in MEGA to merge only
+    #particles of those group that are identified as single
+    #entities ----- not done for now
+    spurious = indices[np.where((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0))[0]]
+    dist_to_others = cdist(cop[spurious], cop[indices])
+    parent = index[np.argmin(dist_to_others, axis=1)]
+    #remove the spurious from index so they aren't counted twice
+    #in the subhalo/particle property collection or write out
+    index = np.delete(index, spurious)
+    parent, spurious_of_parent = ndix_unique(parent)
+
 
     kinp = np.load('./data/kernel_{}.npz'.format(kernel), allow_pickle=True)
     lkernel = kinp['kernel']
@@ -252,6 +292,7 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
     #Getting the indices (major) and the calculation of Z-LOS are the bottlenecks of this code. Maybe try
     #cythonizing the Z-LOS part. Don't know how to change the logical operation part.
     kk = 0
+    spurious_kk = 0
 
     for ii, jj in enumerate(thisok):
 
@@ -262,6 +303,21 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
         g_ok = np.where((gp_sgrpn-sgrpno[jj]==0) & (gp_grpn-grpno[jj]==0))[0]
         g_ok = g_ok[norm(gp_cood[g_ok]-cop[jj],axis=1)<=0.03]
 
+        if jj in parent:
+            for _jj in spurious_of_parent[spurious_kk]:
+
+                #To apply Will's recombine method, it should
+                #be applied here, instead of the next block
+
+                s_ok = np.append(s_ok, np.where((sp_sgrpn-sgrpno[_jj]==0) & (sp_grpn-grpno[_jj]==0))[0])
+                g_ok = np.append(g_ok, np.where((gp_sgrpn-sgrpno[_jj]==0) & (gp_grpn-grpno[_jj]==0))[0])
+
+                #Add in here the subhalo properties that needed
+                #to be added due to spurious
+
+            spurious_kk+=1
+
+
         stop = timeit.default_timer()
 
         if len(s_ok) + len(g_ok) >= 100:
@@ -271,7 +327,7 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
             #to make use of it. At the moment everything along the z-axis
 
             start = timeit.default_timer()
-            Z_los_SD = flares.get_Z_LOS(sp_cood[s_ok], gp_cood[g_ok], gp_mass[g_ok], gp_smooth_Z[g_ok], gp_sl[g_ok], lkernel, kbins)
+            Z_los_SD = flares.get_Z_LOS(sp_cood[s_ok], gp_cood[g_ok], gp_mass[g_ok]*1e10, gp_smooth_Z[g_ok], gp_sl[g_ok], lkernel, kbins)
             stop = timeit.default_timer()
             print ("Calculating Z_los took {}s".format(np.round(stop - start,6)))
 
