@@ -244,14 +244,15 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
 
     #Identifying the index of the spurious array within the
     #array `indices`
-    spurious_indices = np.where(((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0)) & (sgrpno[indices] != 1073741824))[0]
+    spurious_indices = np.where(((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0) | (Maperture[:,4][indices] == 0)) & (sgrpno[indices] != 1073741824))[0]
 
     #Calculating the distance of the spurious to the other subhalos
     dist_to_others = cdist(cop[indices[spurious_indices]], cop[indices])
 
     #To take into account the fact that the spurious subhalos
-    #are present within `indices` at the moment
-    dist_to_others[dist_to_others==0.] = np.nan
+    #themselves as well as others are present within
+    #`indices` at the moment
+    dist_to_others[:, spurious_indices] = np.nan
 
     #Parent is classified as the nearest subhalo to the spurious
     parent = indices[np.nanargmin(dist_to_others, axis=1)]
