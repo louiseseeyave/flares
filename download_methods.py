@@ -244,7 +244,7 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
 
     #Identifying the index of the spurious array within the
     #array `indices`
-    spurious_indices = np.where(((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0) | (Maperture[:,4][indices] == 0)) & (sgrpno[indices] != 1073741824))[0]
+    spurious_indices = np.where((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0) | (Maperture[:,4][indices] == 0))[0]
 
     #Calculating the distance of the spurious to the other subhalos
     dist_to_others = cdist(cop[indices[spurious_indices]], cop[indices])
