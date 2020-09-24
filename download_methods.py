@@ -184,11 +184,8 @@ def extract_info(num, tag, inp='FLARES'):
 
     #Identifying the index of the spurious array within the
     #array `indices`
-<<<<<<< HEAD
-    spurious_indices = np.where(((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0) | (Maperture[:,4][indices] == 0)))[0]
-=======
+
     spurious_indices = np.where((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0) | (Maperture[:,4][indices] == 0))[0]
->>>>>>> dfa7004fbb947608255c7a904717da21a9ff57be
 
     #Calculating the distance of the spurious to the other subhalos
     dist_to_others = cdist(cop[indices[spurious_indices]], cop[indices])
@@ -515,7 +512,7 @@ def save_to_hdf5(num, tag, inpfile, inp='FLARES'):
 
 
     elif inp == 'REF' or inp == 'AGNdT9':
-        filename = F"./data/EAGLE_{inp}_sp_info.hdf5"
+        filename = F"./EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
 
 
@@ -660,11 +657,12 @@ def save_to_hdf5(num, tag, inpfile, inp='FLARES'):
 
 if __name__ == "__main__":
 
-    ii, tag, inp, inpfile = sys.argv[1], sys.argv[2], sys.argv[3]
+    ii, tag, inp, inpfile = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
     num = str(ii)
     tag = str(tag)
     inp = str(inp)
+    inpfile = str(inpfile)
 
     if len(num) == 1:
         num =  '0'+num
