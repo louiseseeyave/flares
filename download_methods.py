@@ -507,7 +507,7 @@ def save_to_hdf5(num, tag, inpfile, inp='FLARES'):
     if inp == 'FLARES':
         if len(num) == 1:
             num =  '0'+num
-        filename = './data/FLARES_{}_sp_info.hdf5'.format(num)
+        filename = './FLARES_{}_sp_info.hdf5'.format(num)
         sim_type = 'FLARES'
 
 
@@ -635,7 +635,7 @@ def save_to_hdf5(num, tag, inpfile, inp='FLARES'):
             sel = np.asarray(sel, dtype=np.int64)
             out = E.read_array(tmp, sim, tag, path, noH=True, physicalUnits=True, numThreads=nThreads)[sel]
 
-            if 'age' in name: out = fl.get_age(out, z, nThreads)
+            if 'age' in name.lower(): out = fl.get_age(out, z, nThreads)
             if 'PartType5' in path:
                 if len(out.shape)>1:
                     out[nok] = [0.,0.,0.]
