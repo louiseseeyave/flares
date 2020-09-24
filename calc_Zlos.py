@@ -61,12 +61,12 @@ def get_data(ii, tag, inp = 'FLARES'):
     if inp == 'FLARES':
         if len(num) == 1:
             num =  '0'+num
-        filename = 'data2/FLARES_{}_sp_info.hdf5'.format(num)
+        filename = './data/FLARES_{}_sp_info.hdf5'.format(num)
         sim_type = 'FLARES'
 
 
     elif inp == 'REF' or inp == 'AGNdT9':
-        filename = F"EAGLE_{inp}_sp_info.hdf5"
+        filename = F"./data/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
 
     with h5py.File(filename, 'r') as hf:
