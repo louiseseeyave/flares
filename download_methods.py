@@ -10,50 +10,6 @@ import eagle_IO.eagle_IO as E
 import flares
 
 norm = np.linalg.norm
-conv = (u.solMass/u.Mpc**2).to(u.solMass/u.pc**2)
-
-
-def rotation_matrix(axis, theta):
-    """
-        Return the rotation matrix associated with counterclockwise rotation about
-        the given axis by theta radians.
-        `https://stackoverflow.com/questions/6802577/rotation-of-3d-vector`
-    """
-    axis = np.asarray(axis)
-    axis = axis / math.sqrt(np.dot(axis, axis))
-    a = math.cos(theta / 2.0)
-    b, c, d = -axis * math.sin(theta / 2.0)
-    aa, bb, cc, dd = a * a, b * b, c * c, d * d
-    bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
-    return np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
-                     [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
-                     [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
-
-
-def make_faceon(cop, this_g_cood, this_g_mass, this_g_vel):
-####Incomplete####
-
-    this_g_cood -= cop
-    ok = np.where(np.sqrt(np.sum(this_g_cood**2, axis = 1)) <= 0.03)
-    this_g_cood = this_g_cood[ok]
-    this_g_mass = this_g_mass[ok]
-    this_g_vel = this_g_vel[ok]
-
-    #Get the angular momentum unit vector
-    L_tot = np.array([this_g_mass]).T*np.cross(this_g_cood, this_g_vel)
-    L_tot_mag = np.sqrt(np.sum(np.nansum(L_tot, axis = 0)**2))
-    L_unit = np.sum(L_tot, axis = 0)/L_tot_mag
-
-    #z-axis as the face-on axis
-    theta = np.arccos(L_unit[2])
-
-    vec = np.cross(np.array([0., 0., 1.]), L_unit)
-    r = rotation_matrix(vec, theta)
-
-    #this_sp_cood *= 1e3
-    new = np.array(this_s_cood.dot(r))
-
-    return new
 
 
 def ndix_unique(x):
@@ -123,7 +79,8 @@ def extract_subfind_info(fname='data/flares.hdf5', inp='FLARES',
 
 
 
-def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
+
+def extract_info(num, tag, inp='FLARES'):
 
     """
     Returns set of pre-defined properties of galaxies from a
@@ -147,7 +104,7 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
 
     if inp == 'FLARES':
         sim_type = 'FLARES'
-        fl = flares.flares(fname = './data2/',sim_type=sim_type)
+        fl = flares.flares(fname = './data/',sim_type=sim_type)
         num = str(num)
         if len(num) == 1:
             num =  '0'+num
@@ -156,12 +113,12 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
 
     elif inp == 'REF':
         sim_type = 'PERIODIC'
-        fl = flares.flares(fname = './data2/',sim_type=sim_type)
+        fl = flares.flares(fname = './data/',sim_type=sim_type)
         sim = fl.ref_directory
 
     elif inp == 'AGNdT9':
         sim_type = 'PERIODIC'
-        fl = flares.flares(fname = './data2/',sim_type=sim_type)
+        fl = flares.flares(fname = './data/',sim_type=sim_type)
         sim = fl.agn_directory
 
     else:
@@ -173,17 +130,15 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
     #Simulation redshift
     z = E.read_header('SUBFIND', sim, tag, 'Redshift')
     a = E.read_header('SUBFIND', sim, tag, 'ExpansionFactor')
+    boxl = E.read_header('SUBFIND', sim, tag, 'BoxSize')/E.read_header('SUBFIND', sim, tag, 'HubbleParam')
 
     ####### Galaxy global properties  #######
-    M200 = E.read_array('SUBFIND', sim, tag, 'FOF/Group_M_Crit200', numThreads=4, noH=True, physicalUnits=True)
-    M500 = E.read_array('SUBFIND', sim, tag, '/FOF/Group_M_Crit500', numThreads=4, noH=True, physicalUnits=True)
-    M2500 = E.read_array('SUBFIND', sim, tag, '/FOF/Group_M_Crit2500', numThreads=4, noH=True, physicalUnits=True)
     SubhaloMass = E.read_array('SUBFIND', sim, tag, '/Subhalo/Mass', numThreads=4, noH=True, physicalUnits=True)
     Maperture = E.read_array('SUBFIND', sim, tag, '/Subhalo/ApertureMeasurements/Mass/030kpc', numThreads=4, noH=True, physicalUnits=True)
     mstar = Maperture[:,4]
     sgrpno = E.read_array('SUBFIND', sim, tag, '/Subhalo/SubGroupNumber', numThreads=4)
     grpno = E.read_array('SUBFIND', sim, tag, '/Subhalo/GroupNumber', numThreads=4)
-    vel = E.read_array('SUBFIND', sim, tag, '/Subhalo/Velocity', noH=True, physicalUnits=True, numThreads=4)
+
 
     if inp == 'FLARES':
         ## Selecting the subhalos within our region
@@ -201,38 +156,23 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
 
     #Star particle
     sp_cood = E.read_array('PARTDATA', sim, tag, '/PartType4/Coordinates', noH=True, physicalUnits=True, numThreads=4)
-    gp_cood = E.read_array('PARTDATA', sim, tag, '/PartType0/Coordinates', noH=True, physicalUnits=True, numThreads=4)
     sp_sgrpn = E.read_array('PARTDATA', sim, tag, '/PartType4/SubGroupNumber', numThreads=4)
     sp_grpn = E.read_array('PARTDATA', sim, tag, '/PartType4/GroupNumber', numThreads=4)
-    sp_mass = E.read_array('PARTDATA', sim, tag, '/PartType4/Mass', noH=True, physicalUnits=True, numThreads=4)
-    sp_mass_init = E.read_array('PARTDATA', sim, tag, '/PartType4/InitialMass', noH=True, physicalUnits=True, numThreads=4)
-    sp_smooth_Z = E.read_array('PARTDATA', sim, tag, '/PartType4/SmoothedMetallicity', numThreads=4)
-    sp_Z = E.read_array('PARTDATA', sim, tag, '/PartType4/Metallicity', numThreads=4)
-    sp_vel = E.read_array('PARTDATA', sim, tag, '/PartType4/Velocity', noH=True, physicalUnits=True, numThreads=4)
-    sp_sl = E.read_array('PARTDATA', sim, tag, '/PartType4/SmoothingLength', noH=True, physicalUnits=True, numThreads=4)
-    sp_ft = E.read_array('PARTDATA', sim, tag, '/PartType4/StellarFormationTime', noH=True, physicalUnits=True, numThreads=4)
-    sp_ids = E.read_array('PARTDATA', sim, tag, '/PartType4/ParticleIDs', noH=True, physicalUnits=True, numThreads=4)
 
     #Gas paticle
+    gp_cood = E.read_array('PARTDATA', sim, tag, '/PartType0/Coordinates', noH=True, physicalUnits=True, numThreads=4)
     gp_sgrpn = E.read_array('PARTDATA', sim, tag, '/PartType0/SubGroupNumber', numThreads=4)
     gp_grpn = E.read_array('PARTDATA', sim, tag, '/PartType0/GroupNumber', numThreads=4)
-    gp_mass = E.read_array('PARTDATA', sim, tag, '/PartType0/Mass', noH=True, physicalUnits=True, numThreads=4)
-    gp_smooth_Z = E.read_array('PARTDATA', sim, tag, '/PartType0/SmoothedMetallicity', numThreads=4)
-    gp_Z = E.read_array('PARTDATA', sim, tag, '/PartType0/Metallicity', numThreads=4)
-    gp_vel = E.read_array('PARTDATA', sim, tag, '/PartType0/Velocity', noH=True, physicalUnits=True, numThreads=4)
-    gp_sl = E.read_array('PARTDATA', sim, tag, '/PartType0/SmoothingLength', noH=True, physicalUnits=True, numThreads=4)
-    gp_ids = E.read_array('PARTDATA', sim, tag, '/PartType0/ParticleIDs', noH=True, physicalUnits=True, numThreads=4)
     gp_sfr = E.read_array('PARTDATA', sim, tag, '/PartType0/StarFormationRate', noH=True, physicalUnits=True, numThreads=4)
 
     #Black hole particle
     #subgrid properties are theones required
-    #Only for high masses the subhalo and particle properties
-    #trace each other
+    #Only for high masses the subhalo and particle properties trace each other
     bh_sgrpn = E.read_array('PARTDATA', sim, tag, '/PartType5/SubGroupNumber', numThreads=4)
     bh_grpn = E.read_array('PARTDATA', sim, tag, '/PartType5/GroupNumber', numThreads=4)
     bh_mass = E.read_array('PARTDATA', sim, tag, '/PartType5/BH_Mass', noH=True, physicalUnits=True, numThreads=4)
-    bh_mdot = E.read_array('PARTDATA', sim, tag, '/PartType5/BH_Mdot', noH=True, physicalUnits=True, numThreads=4)
-    bh_FormationTime = E.read_array('PARTDATA', sim, tag, '/PartType5/BH_FormationTime', noH=True, physicalUnits=True, numThreads=4)
+    bh_cood = E.read_array('PARTDATA', sim, tag, '/PartType5/Coordinates', numThreads=4, noH=True, physicalUnits=False)
+
 
     ###########################  For identifying spurious galaxies and remerging them to the parent  ###########################
 
@@ -244,7 +184,7 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
 
     #Identifying the index of the spurious array within the
     #array `indices`
-    spurious_indices = np.where(((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0) | (Maperture[:,4][indices] == 0)) & (sgrpno[indices] != 1073741824))[0]
+    spurious_indices = np.where(((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0) | (Maperture[:,4][indices] == 0)))[0]
 
     #Calculating the distance of the spurious to the other subhalos
     dist_to_others = cdist(cop[indices[spurious_indices]], cop[indices])
@@ -270,18 +210,10 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
     spurious = indices[spurious_indices]
     indices = np.delete(indices, spurious_indices)
 
-
-    kinp = np.load('./data/kernel_{}.npz'.format(kernel), allow_pickle=True)
-    lkernel = kinp['kernel']
-    header = kinp['header']
-    kbins = header.item()['bins']
-
-    if rank == 0:
-        print('\n\t\t\t###################################\nKernel used is `{}` and the number of bins in the look up table is {}\n\t\t\t###################################\n'.format(header.item()['kernel'], kbins))
-
     del spurious_indices, dist_to_others
 
     gc.collect()
+
 
     comm.Barrier()
 
@@ -290,69 +222,119 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
 
     if rank == 0:
         if inp != 'FLARES': num = ''
-        print("Extracting required properties for {} subhalos from {} region {} at z = {}".format(len(indices), inp, num, z))
+        print("Extracting required properties for {} subhalos from {} region {} at z = {} of boxsize = {}".format(len(indices), inp, num, z, boxl))
+
+    #For getting black hole subgrid masses
+    tbhindex = np.zeros(num_subhalos)
+    tbh_cood = np.zeros((num_subhalos, 3))
+    tbh_mass = np.zeros(num_subhalos)
+
+    #Arrays that needs addition:
+    tmstar_spurious = np.zeros(num_subhalos)
+    tsfr_inst_spurious = np.zeros(num_subhalos)
+    tSubhaloMass_spurious = np.zeros(num_subhalos)
 
 
-    if rank!=size-1:
-        thisok = indices[rank*part:(rank+1)*part]
+    if inp == 'FLARES':
+        if rank!=size-1:
+            thisok = indices[rank*part:(rank+1)*part]
+        else:
+            thisok = indices[rank*part:]
+
     else:
-        thisok = indices[rank*part:]
+        #Size needs to be a perfect cube to work
+        l = boxl / (size)**(1/3)
+        sz = (size)**(1/3)
+        dl = 10.
+        xyz = np.zeros((size,8,3))
+        count=0
+        for xx in range(int(sz)):
+            for yy in range(int(sz)):
+                for zz in range(int(sz)):
+                    xyz[count] = np.array([[xx, yy, zz], [xx+1, yy, zz], [xx, yy+1, zz], [xx, yy, zz+1], [xx+1, yy+1, zz], [xx+1, yy, zz+1], [xx, yy+1, zz+1], [xx+1, yy+1, zz+1]])
+                    count+=1
+
+
+        this_xyz = xyz[rank]*l
+        max_xyz = np.max(this_xyz, axis=0)
+        min_xyz = np.min(this_xyz, axis=0)
+
+
+        thisok = np.ones(len(indices), dtype=bool)
+        for xx in range(3):
+            thisok*=np.logical_and(cop[indices][:,xx]/a>=min_xyz[xx], cop[indices][:,xx]/a<=max_xyz[xx])
+        thisok = indices[thisok]
+        # print (thisok, rank, max_xyz, min_xyz)
+        # print (cop[thisok])
+
+        #Dividing the gas particles into a cell for current task
+        gg = np.ones(len(gp_cood), dtype=bool)
+        for xx in range(3):
+            gg*=np.logical_or((min_xyz[xx]-dl<=gp_cood[:,xx]/a)*(gp_cood[:,xx]/a<=max_xyz[xx]+dl), np.logical_or((min_xyz[xx]-dl<=gp_cood[:,xx]/a+boxl)*(gp_cood[:,xx]/a+boxl<=max_xyz[xx]+dl), (min_xyz[xx]-dl<=gp_cood[:,xx]/a-boxl)*(gp_cood[:,xx]/a-dl<=max_xyz[xx]+dl)))
+        gg = np.where(gg)[0]
+
+        gp_cood = gp_cood[gg]
+        gp_sgrpn = gp_sgrpn[gg]
+        gp_grpn = gp_grpn[gg]
+        gp_sfr = gp_sfr[gg]
+
+        #Dividing the star particles into a cell for current task
+        ss = np.ones(len(sp_cood), dtype=bool)
+        for xx in range(3):
+            ss*=np.logical_or((min_xyz[xx]-dl<=sp_cood[:,xx]/a)*(sp_cood[:,xx]/a<=max_xyz[xx]+dl), np.logical_or((min_xyz[xx]/a-dl<=sp_cood[:,xx]/a+boxl)*(sp_cood[:,xx]/a+boxl<=max_xyz[xx]+dl), (min_xyz[xx]-dl<=sp_cood[:,xx]/a-boxl)*(sp_cood[:,xx]/a-boxl<=max_xyz[xx]+dl)))
+        ss = np.where(ss)[0]
+
+        sp_cood = sp_cood[ss]
+        sp_sgrpn = sp_sgrpn[ss]
+        sp_grpn = sp_grpn[ss]
+
+        #Dividing the black hole particles into a cell for current task
+        bb = np.ones(len(bh_cood), dtype=bool)
+        for xx in range(3):
+            bb*=np.logical_or((min_xyz[xx]-dl<=bh_cood[:,xx]/a)*(bh_cood[:,xx]/a<=max_xyz[xx]+dl), np.logical_or((min_xyz[xx]-dl<=bh_cood[:,xx]/a+boxl)*(bh_cood[:,xx]/a+boxl<=max_xyz[xx]+dl), (min_xyz[xx]-dl<=bh_cood[:,xx]/a-boxl)*(bh_cood[:,xx]/a-boxl<=max_xyz[xx]+dl)))
+        bb = np.where(bb)[0]
+
+        bh_sgrpn = bh_sgrpn[bb]
+        bh_grpn = bh_grpn[bb]
+        bh_mass = bh_mass[bb]
+
+        del bh_cood
+
+    gc.collect()
 
     tsnum = np.zeros(len(thisok)+1).astype(int)
     tgnum = np.zeros(len(thisok)+1).astype(int)
     ind = np.array([])
 
-    sn = len(sp_mass)
-    gn = len(gp_mass)
+    sn = len(sp_grpn)
+    gn = len(gp_grpn)
 
     tsindex = np.empty(sn)
     tgindex = np.empty(gn)
 
-    tsmass = np.empty(sn)
-    tsmass_init = np.empty(sn)
-    tgmass = np.empty(gn)
-
-    tsid = np.empty(sn)
-    tgid = np.empty(gn)
-
-    tsvel = np.empty((sn,3))
-    tgvel = np.empty((gn,3))
-
-    tsZ = np.empty(sn)
-    tsZ_smooth = np.empty(sn)
-    tgZ = np.empty(gn)
-    tgZ_smooth = np.empty(gn)
-
     tscood = np.empty((sn,3))
     tgcood = np.empty((gn,3))
-
-    ts_sml = np.empty(sn)
-    tg_sml = np.empty(gn)
-
-    tsage = np.empty(sn)
-    tZ_los = np.empty(sn)
-
-    #For black hole subgrid masses
-    tbhindex = np.zeros(num_subhalos)
-    tbh_mass = np.zeros(num_subhalos)
-    tbh_mdot = np.zeros(num_subhalos)
-    tbh_ftime = np.zeros(num_subhalos)
 
     gc.collect()
 
     #Getting the indices (major) and the calculation of Z-LOS are the bottlenecks of this code. Maybe try
     #cythonizing the Z-LOS part. Don't know how to change the logical operation part.
     kk = 0
-
+    dist_sq = 0.03*0.03 #in pMpc^2 for 30pkpc Aperture
+    bounds = np.array([boxl, boxl, boxl])   #https://stackoverflow.com/a/11109244
     for ii, jj in enumerate(thisok):
 
-        start = timeit.default_timer()
+        #start = timeit.default_timer()
 
         s_ok = np.where((sp_sgrpn-sgrpno[jj]==0) & (sp_grpn-grpno[jj]==0))[0]
-        s_ok = s_ok[norm(sp_cood[s_ok]-cop[jj],axis=1)<=0.03]
+        tmp = sp_cood[s_ok]-cop[jj]
+        if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+        s_ok = s_ok[np.sum(tmp**2,axis=1)<=dist_sq]
 
         g_ok = np.where((gp_sgrpn-sgrpno[jj]==0) & (gp_grpn-grpno[jj]==0))[0]
-        g_ok = g_ok[norm(gp_cood[g_ok]-cop[jj],axis=1)<=0.03]
+        tmp = gp_cood[g_ok]-cop[jj]
+        if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+        g_ok = g_ok[np.sum(tmp**2,axis=1)<=dist_sq]
 
         bh_ok = np.where((bh_sgrpn-sgrpno[jj]==0) & (bh_grpn-grpno[jj]==0))[0]
 
@@ -365,43 +347,42 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
                 #be applied here, instead of the next block
 
                 spurious_s_ok = np.where((sp_sgrpn-sgrpno[_jj]==0) & (sp_grpn-grpno[_jj]==0))[0]
-                s_ok = np.append(s_ok, spurious_s_ok[norm(sp_cood[spurious_s_ok]-cop[jj],axis=1)<=0.03])
+                tmp = sp_cood[spurious_s_ok]-cop[jj]
+                if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+                s_ok = np.append(s_ok, spurious_s_ok[np.sum(tmp**2,axis=1)<=dist_sq])
 
                 spurious_g_ok = np.where((gp_sgrpn-sgrpno[_jj]==0) & (gp_grpn-grpno[_jj]==0))[0]
-                g_ok = np.append(g_ok, spurious_g_ok[norm(gp_cood[spurious_g_ok]-cop[jj],axis=1)<=0.03])
+                tmp = gp_cood[spurious_g_ok]-cop[jj]
+                if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+                g_ok = np.append(g_ok, spurious_g_ok[np.sum(tmp**2,axis=1)<=dist_sq])
 
                 bh_ok = np.append(bh_ok, np.where((bh_sgrpn-sgrpno[_jj]==0) & (bh_grpn-grpno[_jj]==0))[0])
 
             #Add in here the subhalo properties that needed
             #to be added due to spurious
-            sfr_inst[jj] = np.sum(gp_sfr[g_ok])
-            mstar[jj]+=np.sum(mstar[spurious[spurious_of_parent[this_spurious[0]]]])
-            SubhaloMass[jj]+= np.sum(SubhaloMass[spurious[spurious_of_parent[this_spurious[0]]]])
+            tsfr_inst_spurious[jj] = np.sum(gp_sfr[g_ok])
+            tmstar_spurious[jj] = np.sum(mstar[spurious[spurious_of_parent[this_spurious[0]]]])
+            tSubhaloMass_spurious[jj] = np.sum(SubhaloMass[spurious[spurious_of_parent[this_spurious[0]]]])
 
 
-        stop = timeit.default_timer()
+        #stop = timeit.default_timer()
 
         if len(s_ok) + len(g_ok) >= 100:
 
-            print ("Calculating indices took {}s".format(np.round(stop - start,6)))
-            #Use the `make_faceon` function here to transform to face-on coordinates. Need to add more
-            #to make use of it. At the moment everything along the z-axis
-
-            start = timeit.default_timer()
-            Z_los_SD = flares.get_Z_LOS(sp_cood[s_ok], gp_cood[g_ok], gp_mass[g_ok]*1e10, gp_smooth_Z[g_ok], gp_sl[g_ok], lkernel, kbins)
-            stop = timeit.default_timer()
-            print ("Calculating Z_los took {}s".format(np.round(stop - start,6)))
-
-            start = timeit.default_timer()
+            #print ("Calculating indices took {}s".format(np.round(stop - start,6)))
+            # start = timeit.default_timer()
 
             #Extracting subgrid black hole properties
             if len(bh_ok>0):
-                tbh_max_index = np.argmax(bh_mass[bh_ok])
-                tbh_mass[indices[rank*part+ii]] = bh_mass[bh_ok[tbh_max_index]]
-                tbh_mdot[indices[rank*part+ii]] = bh_mdot[bh_ok[tbh_max_index]]
-                tbh_ftime[indices[rank*part+ii]] = bh_FormationTime[bh_ok[tbh_max_index]]
 
-                tbhindex[indices[rank*part+ii]] = bh_ok[tbh_max_index]
+                tbh_max_index = np.argmax(bh_mass[bh_ok])
+                tbh_mass[jj] = bh_mass[bh_ok[tbh_max_index]]
+
+                if inp=='FLARES':
+                    tbhindex[jj] = bh_ok[tbh_max_index]
+                else:
+                    tbhindex[jj] = bb[bh_ok[tbh_max_index]]
+
 
             tsnum[kk+1] = len(s_ok)
             tgnum[kk+1] = len(g_ok)
@@ -413,44 +394,29 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
             gbeg = gcum[kk]
             gend = gcum[kk+1]
 
-            tsindex[sbeg:send] = s_ok
-            tgindex[gbeg:gend] = g_ok
-
+            if inp=='FLARES':
+                tsindex[sbeg:send] = s_ok
+                tgindex[gbeg:gend] = g_ok
+            else:
+                tsindex[sbeg:send] = ss[s_ok]
+                tgindex[gbeg:gend] = gg[g_ok]
 
             tscood[sbeg:send] = sp_cood[s_ok]
             tgcood[gbeg:gend] = gp_cood[g_ok]
 
-            tsid[sbeg:send] = sp_ids[s_ok]
-            tgid[gbeg:gend] = gp_ids[g_ok]
-
-            tsmass[sbeg:send] = sp_mass[s_ok]
-            tsmass_init[sbeg:send] = sp_mass_init[s_ok]
-            tgmass[gbeg:gend] = gp_mass[g_ok]
-
-            tsvel[sbeg:send] = sp_vel[s_ok]
-            tgvel[gbeg:gend] = gp_vel[g_ok]
-
-            tsZ[sbeg:send] = sp_Z[s_ok]
-            tsZ_smooth[sbeg:send] = sp_smooth_Z[s_ok]
-            tgZ[gbeg:gend] = gp_Z[g_ok]
-            tgZ_smooth[gbeg:gend] = gp_smooth_Z[g_ok]
-
-            ts_sml[sbeg:send] = sp_sl[s_ok]
-            tg_sml[gbeg:gend] = gp_sl[g_ok]
-
-            tsage[sbeg:send] = sp_ft[s_ok]
-            tZ_los[sbeg:send] = Z_los_SD
-            stop = timeit.default_timer()
-            print ("Assigning arrays took {}s".format(np.round(stop - start,6)))
+            # stop = timeit.default_timer()
+            # print ("Assigning arrays took {}s".format(np.round(stop - start,6)))
             gc.collect()
 
             kk+=1
+
         else:
 
             ind = np.append(ind, ii)
 
     ##End of loop ii, jj##
-    del sp_sgrpn, sp_grpn, sp_mass, sp_mass_init, sp_Z, sp_smooth_Z, sp_cood, sp_sl, sp_ft, gp_sgrpn, gp_grpn, gp_mass, gp_Z, gp_smooth_Z, gp_cood, gp_sl
+
+    del sp_sgrpn, sp_grpn, sp_cood, gp_sgrpn, gp_grpn, gp_cood, gp_sfr, bh_sgrpn, bh_grpn, bh_mass
 
     gc.collect()
 
@@ -458,8 +424,10 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
     thisok = np.delete(thisok, ind.astype(int))
     tbhindex = tbhindex[thisok]
     tbh_mass = tbh_mass[thisok]
-    tbh_mdot = tbh_mdot[thisok]
-    tbh_ftime = tbh_ftime[thisok]
+
+    tmstar_spurious = tmstar_spurious[thisok]
+    tsfr_inst_spurious = tsfr_inst_spurious[thisok]
+    tSubhaloMass_spurious = tSubhaloMass_spurious[thisok]
 
     tstot = np.sum(tsnum)
     tgtot = np.sum(tgnum)
@@ -473,27 +441,6 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
     tscood = tscood[:tstot]
     tgcood = tgcood[:tgtot]
 
-    tsid = tsid[:tstot]
-    tgid = tgid[:tgtot]
-
-    tsmass = tsmass[:tstot]
-    tsmass_init = tsmass_init[:tstot]
-    tgmass = tgmass[:tgtot]
-
-    tsvel = tsvel[:tstot]
-    tgvel = tgvel[:tgtot]
-
-    tsZ = tsZ[:tstot]
-    tsZ_smooth = tsZ_smooth[:tstot]
-    tgZ = tgZ[:tgtot]
-    tgZ_smooth = tgZ_smooth[:tgtot]
-
-    ts_sml = ts_sml[:tstot]
-    tg_sml = tg_sml[:tgtot]
-
-    tsage = fl.get_age(tsage[:tstot], z, 4)
-    tbh_ftime = fl.get_age(tbh_ftime, z, 4)
-    tZ_los = tZ_los[:tstot]
 
     comm.Barrier()
 
@@ -502,10 +449,13 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
         print ("Gathering data from different processes")
 
     indices = comm.gather(thisok, root=0)
+
     bhindex = comm.gather(tbhindex, root=0)
     bh_mass = comm.gather(tbh_mass, root=0)
-    bh_mdot = comm.gather(tbh_mdot, root=0)
-    bh_ftime = comm.gather(tbh_ftime, root=0)
+
+    mstar_spurious = comm.gather(tmstar_spurious, root=0)
+    sfr_inst_spurious = comm.gather(tsfr_inst_spurious, root=0)
+    SubhaloMass_spurious = comm.gather(tSubhaloMass_spurious, root=0)
 
     snum = comm.gather(tsnum, root=0)
     gnum = comm.gather(tgnum, root=0)
@@ -513,34 +463,23 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
     gindex = comm.gather(tgindex, root=0)
     scood = comm.gather(tscood, root=0)
     gcood = comm.gather(tgcood, root=0)
-    sid = comm.gather(tsid, root=0)
-    gid = comm.gather(tgid, root=0)
-    smass = comm.gather(tsmass, root=0)
-    smass_init = comm.gather(tsmass_init, root=0)
-    gmass = comm.gather(tgmass, root=0)
-    svel = comm.gather(tsvel, root=0)
-    gvel = comm.gather(tgvel, root=0)
-    sZ = comm.gather(tsZ, root=0)
-    sZ_smooth = comm.gather(tsZ_smooth, root=0)
-    gZ = comm.gather(tgZ, root=0)
-    gZ_smooth = comm.gather(tgZ_smooth, root=0)
-    s_sml = comm.gather(ts_sml, root=0)
-    g_sml = comm.gather(tg_sml, root=0)
-    sage = comm.gather(tsage, root=0)
-    Z_los = comm.gather(tZ_los, root=0)
 
+    ok_centrals = 0.
 
     if rank == 0:
 
         print ("Gathering completed")
+
         indices = np.concatenate(np.array(indices))
         sindex = np.concatenate(np.array(sindex))
         gindex = np.concatenate(np.array(gindex))
         bhindex = np.concatenate(np.array(bhindex))
 
         bh_mass = np.concatenate(np.array(bh_mass))
-        bh_mdot = np.concatenate(np.array(bh_mdot))
-        bh_ftime = np.concatenate(np.array(bh_ftime))
+
+        mstar_spurious = np.concatenate(np.array(mstar_spurious))
+        sfr_inst_spurious = np.concatenate(np.array(sfr_inst_spurious))
+        SubhaloMass_spurious = np.concatenate(np.array(SubhaloMass_spurious))
 
         snum = np.concatenate(np.array(snum))
         gnum = np.concatenate(np.array(gnum))
@@ -548,53 +487,38 @@ def extract_info(num, tag, kernel='sph-anarchy', inp='FLARES'):
         scood = np.concatenate(np.array(scood), axis = 0)/a
         gcood = np.concatenate(np.array(gcood), axis = 0)/a
 
-        sid = np.concatenate(np.array(sid))
-        gid = np.concatenate(np.array(gid))
-
-        smass = np.concatenate(np.array(smass))
-        smass_init = np.concatenate(np.array(smass_init))
-        gmass = np.concatenate(np.array(gmass))
-
-        svel = np.concatenate(np.array(svel), axis = 0)
-        gvel = np.concatenate(np.array(gvel), axis = 0)
-
-        sZ = np.concatenate(np.array(sZ))
-        sZ_smooth = np.concatenate(np.array(sZ_smooth))
-        gZ = np.concatenate(np.array(gZ))
-        gZ_smooth = np.concatenate(np.array(gZ_smooth))
-
-        s_sml = np.concatenate(np.array(s_sml))
-        g_sml = np.concatenate(np.array(g_sml))
-
-        sage = np.concatenate(np.array(sage))
-        Z_los = np.concatenate(np.array(Z_los))
-
         ok_centrals = grpno[indices] - 1
 
-        M200 = M200[ok_centrals]
-        M500 = M500[ok_centrals]
-        M2500 = M2500[ok_centrals]
+        SubhaloMass = SubhaloMass[indices]+SubhaloMass_spurious
+        mstar = mstar[indices]+mstar_spurious
+        sfr_inst = sfr_inst[indices]+sfr_inst_spurious
+        cop = cop[indices]/a
+        sgrpno = sgrpno[indices]
+        grpno = grpno[indices]
 
 
-    return indices, sindex, gindex, bhindex, M200, M500, M2500, SubhaloMass[indices], mstar[indices], cop[indices]/a, vel[indices], sfr_inst[indices], grpno[indices], sgrpno[indices], snum, gnum, scood, gcood, sid, gid, smass, smass_init, gmass, svel, gvel, sZ, sZ_smooth, gZ, gZ_smooth, s_sml, g_sml, sage, Z_los, bh_mass, bh_mdot, bh_ftime
-
+    return ok_centrals, indices, sgrpno, grpno, cop, SubhaloMass, mstar, sfr_inst, snum, gnum, sindex, gindex, bhindex, scood, gcood, bh_mass
 ##End of function `extract_info`
 
-def save_to_hdf5(num, tag, kernel='sph-anarchy', inp='FLARES'):
+def save_to_hdf5(num, tag, inpfile, inp='FLARES'):
 
     num = str(num)
     if inp == 'FLARES':
         if len(num) == 1:
             num =  '0'+num
-        filename = 'data2/FLARES_{}_sp_info.hdf5'.format(num)
+        filename = './data/FLARES_{}_sp_info.hdf5'.format(num)
         sim_type = 'FLARES'
 
+
     elif inp == 'REF' or inp == 'AGNdT9':
-        filename = F"data2/EAGLE_{inp}_sp_info.hdf5"
+        filename = F"./data/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
+
 
     else:
         ValueError("Type of input simulation not recognized")
+
+
 
     ## MPI parameters
     comm = MPI.COMM_WORLD
@@ -607,7 +531,7 @@ def save_to_hdf5(num, tag, kernel='sph-anarchy', inp='FLARES'):
         print ("#################   Number of processors being used is {}   #############".format(size))
 
 
-    indices, sindex, gindex, bhindex, M200, M500, M2500, SubhaloMass, mstar, cop, vel, sfr_inst, grpno, sgrpno, snum, gnum, scood, gcood, sid, gid, smass, smass_init, gmass, svel, gvel, sZ, sZ_smooth, gZ, gZ_smooth, s_sml, g_sml, sage, Z_los, bh_mass, bh_mdot, bh_ftime = extract_info(num, tag, kernel, inp)
+    ok_centrals, indices, sgrpno, grpno, cop, SubhaloMass, mstar, sfr_inst, snum, gnum, sindex, gindex, bhindex, scood, gcood, bh_mass = extract_info(num, tag, inp)
 
 
     if rank == 0:
@@ -616,61 +540,55 @@ def save_to_hdf5(num, tag, kernel='sph-anarchy', inp='FLARES'):
 
         fl = flares.flares(fname = filename,sim_type = sim_type)
         fl.create_group(tag)
+        if inp == 'FLARES':
+            dir = fl.directory
+            sim = F"{dir}GEAGLE_{num}/data/"
+
+        elif inp == 'REF':
+            sim = fl.ref_directory
+
+        elif inp == 'AGNdT9':
+            sim = fl.agn_directory
+
 
         fl.create_group('{}/Galaxy'.format(tag))
         fl.create_group('{}/Particle'.format(tag))
 
 
-        fl.create_dataset(indices, 'Indices', '{}/Galaxy'.format(tag), dtype = np.int32,
+        fl.create_dataset(indices, 'Indices', '{}/Galaxy'.format(tag), dtype = 'int64',
             desc = 'Index of the galaxy in the resimulation')
 
-        fl.create_dataset(grpno, 'GroupNumber', '{}/Galaxy'.format(tag), dtype = np.int32,
+
+        fl.create_dataset(sindex, 'S_Index', '{}/Particle'.format(tag), dtype = 'int64',
+            desc = 'Index of selected star particles in the particle data')
+        fl.create_dataset(gindex, 'G_Index', '{}/Particle'.format(tag), dtype = 'int64',
+            desc = 'Index of selected gas particles in the particle data')
+        fl.create_dataset(bhindex, 'BH_Index', '{}/Particle'.format(tag), dtype = 'int64',
+            desc = 'Index of selected black hole particles in the particle data')
+
+
+        fl.create_dataset(grpno, 'GroupNumber', '{}/Galaxy'.format(tag), dtype = 'int64',
             desc = 'Group Number of the galaxy')
-        fl.create_dataset(sgrpno, 'SubGroupNumber', '{}/Galaxy'.format(tag), dtype = np.int32,
+        fl.create_dataset(sgrpno, 'SubGroupNumber', '{}/Galaxy'.format(tag), dtype = 'int64',
             desc = 'Subgroup Number of the galaxy')
 
-        fl.create_dataset(M200, 'M200', '{}/Galaxy'.format(tag),
-            desc = 'M200 of the group', unit = '1E10 Msun')
-        fl.create_dataset(M500, 'M500', '{}/Galaxy'.format(tag),
-            desc = 'M500 of the group', unit = '1E10 Msun')
-        fl.create_dataset(M2500, 'M2500', '{}/Galaxy'.format(tag),
-            desc = 'M2500 of the group', unit = '1E10 Msun')
+
+        fl.create_dataset(snum, 'S_Length', '{}/Galaxy'.format(tag), dtype = 'int64',
+            desc = 'Number of star particles inside 30pkpc')
+        fl.create_dataset(gnum, 'G_Length', '{}/Galaxy'.format(tag), dtype = 'int64',
+            desc = 'Number of gas particles inside 30pkpc')
+
 
         fl.create_dataset(SubhaloMass, 'SubhaloMass', '{}/Galaxy'.format(tag),
             desc = 'Subhalo mass of the sub-group', unit = '1E10 Msun')
         fl.create_dataset(mstar, 'Mstar_30', '{}/Galaxy'.format(tag),
             desc = 'Stellar mass of the galaxy measured inside 30pkc aperture', unit = '1E10 Msun')
-        fl.create_dataset(cop.T, 'COP', '{}/Galaxy'.format(tag),
-            desc = 'Centre Of Potential of the galaxy', unit = 'cMpc')
-        fl.create_dataset(vel.T, 'Velocity', '{}/Galaxy'.format(tag),
-            desc = 'Velocity of the galaxy', unit = 'km/s')
         fl.create_dataset(sfr_inst, 'SFR_inst_30', '{}/Galaxy'.format(tag),
             desc = 'Instantaneous sfr of the galaxy measured inside 30pkc aperture', unit = 'Msun/yr')
-
+        fl.create_dataset(cop.T, 'COP', '{}/Galaxy'.format(tag),
+            desc = 'Centre Of Potential of the galaxy', unit = 'cMpc')
         fl.create_dataset(bh_mass, 'BH_Mass', '{}/Galaxy'.format(tag),
             desc = 'Most massive black hole mass', unit = '1E10 Msun')
-        fl.create_dataset(bh_mdot, 'BH_Mdot', '{}/Galaxy'.format(tag),
-            desc = 'Most massive black hole instantaneous accretion rate', unit = '1E10 Msun/yr')
-        fl.create_dataset(bh_ftime, 'BH_Age', '{}/Galaxy'.format(tag),
-            desc = 'Most massive black hole age', unit = 'Gyr')
-
-
-        fl.create_dataset(snum, 'S_Length', '{}/Galaxy'.format(tag), dtype = np.int32,
-            desc = 'Number of star particles inside 30pkpc')
-        fl.create_dataset(gnum, 'G_Length', '{}/Galaxy'.format(tag), dtype = np.int32,
-            desc = 'Number of gas particles inside 30pkpc')
-
-
-
-        fl.create_dataset(sindex, 'S_Index', '{}/Particle'.format(tag), dtype = np.int64,
-            desc = 'Index of selected star particles in the particle data')
-        fl.create_dataset(gindex, 'G_Index', '{}/Particle'.format(tag), dtype = np.int64,
-            desc = 'Index of selected gas particles in the particle data')
-        fl.create_dataset(bhindex, 'BH_Index', '{}/Particle'.format(tag), dtype = np.int64,
-            desc = 'Index of selected black hole particles in the particle data')
-
-
-
 
 
         fl.create_dataset(scood.T, 'S_Coordinates', '{}/Particle'.format(tag),
@@ -678,46 +596,67 @@ def save_to_hdf5(num, tag, kernel='sph-anarchy', inp='FLARES'):
         fl.create_dataset(gcood.T, 'G_Coordinates', '{}/Particle'.format(tag),
             desc = 'Gas particle coordinates', unit = 'cMpc')
 
-        fl.create_dataset(sid, 'S_ID', '{}/Particle'.format(tag),
-            desc = 'Star particle ID', unit = 'None')
-        fl.create_dataset(gid, 'G_ID', '{}/Particle'.format(tag),
-            desc = 'Gas particle ID', unit = 'None')
 
-        fl.create_dataset(smass, 'S_Mass', '{}/Particle'.format(tag),
-            desc = 'Star particle masses', unit = '1E10 Msun')
-        fl.create_dataset(smass_init, 'S_MassInitial', '{}/Particle'.format(tag),
-            desc = 'Star particle masses at formation time', unit = '1E10 Msun')
-        fl.create_dataset(gmass, 'G_Mass', '{}/Particle'.format(tag),
-            desc = 'Gas particle masses', unit = '1E10 Msun')
+        del grpno, sgrpno, snum, gnum, SubhaloMass, mstar, sfr_inst, cop, scood, gcood
+        gc.collect()
+        print ('gc collect')
 
-        fl.create_dataset(svel, 'S_Vel', '{}/Particle'.format(tag),
-            desc = 'Star particle peculiar velocity', unit = 'km/s')
-        fl.create_dataset(gvel, 'G_Vel', '{}/Particle'.format(tag),
-            desc = 'Gas particle peculiar velocity', unit = 'km/s')
 
-        fl.create_dataset(sZ, 'S_Z', '{}/Particle'.format(tag),
-            desc = 'Star particle metallicity', unit = 'No units')
-        fl.create_dataset(sZ_smooth, 'S_Z_smooth', '{}/Particle'.format(tag),
-            desc = 'Star particle smoothed metallicity', unit = 'No units')
-        fl.create_dataset(gZ, 'G_Z', '{}/Particle'.format(tag),
-            desc = 'Gas particle metallicity', unit = 'No units')
-        fl.create_dataset(gZ_smooth, 'G_Z_smooth', '{}/Particle'.format(tag),
-            desc = 'Gas particle smoothed metallicity', unit = 'No units')
+        nThreads=4
+        a = E.read_header('SUBFIND', sim, tag, 'ExpansionFactor')
+        z = E.read_header('SUBFIND', sim, tag, 'Redshift')
+        data = np.genfromtxt(inpfile, delimiter=',', dtype='str')
+        for ii in range(len(data)):
+            name = data[:,0][ii]
+            path = data[:,1][ii]
+            unit = data[:,3][ii]
+            desc = data[:,4][ii]
 
-        fl.create_dataset(s_sml, 'S_sml', '{}/Particle'.format(tag),
-            desc = 'Star particle smoothing length', unit = 'pMpc')
-        fl.create_dataset(g_sml, 'G_sml', '{}/Particle'.format(tag),
-            desc = 'Gas particle smoothing length', unit = 'pMpc')
+            if 'PartType' in path:
+                tmp = 'PARTDATA'
+                location = 'Particle'
+                if 'PartType0' in path:
+                    sel = gindex
+                elif 'PartType4' in path:
+                    sel = sindex
+                else:
+                    nok = np.where(bh_mass==0)[0]
+                    sel = bhindex
+                    location = 'Galaxy'
+            else:
+                tmp = 'SUBFIND'
+                location = 'Galaxy'
+                if 'FOF' in path:
+                    sel = ok_centrals
+                else:
+                    sel = indices
 
-        fl.create_dataset(sage, 'S_Age', '{}/Particle'.format(tag),
-            desc = 'Star particle age', unit = 'Gyr')
-        fl.create_dataset(Z_los, 'S_los', '{}/Particle'.format(tag),
-            desc = 'Star particle line-of-sight metal column density along the z-axis', unit = 'Msun/pc^2')
+            sel = np.asarray(sel, dtype=np.int64)
+            out = E.read_array(tmp, sim, tag, path, noH=True, physicalUnits=True, numThreads=nThreads)[sel]
+
+            if 'age' in name: out = fl.get_age(out, z, nThreads)
+            if 'PartType5' in path:
+                if len(out.shape)>1:
+                    out[nok] = [0.,0.,0.]
+                else:
+                    out[nok] = 0.
+
+
+            if 'coordinates' in path.lower(): out=out.T/a
+            if 'velocity' in path.lower(): out = out.T
+
+
+            fl.create_dataset(out, name, '{}/{}'.format(tag, location),
+                desc = desc.encode('utf-8'), unit = unit.encode('utf-8'))
+
+            del out
+            gc.collect()
+
 
 
 if __name__ == "__main__":
 
-    ii, tag, inp = sys.argv[1], sys.argv[2], sys.argv[3]
+    ii, tag, inp, inpfile = sys.argv[1], sys.argv[2], sys.argv[3]
 
     num = str(ii)
     tag = str(tag)
@@ -727,4 +666,4 @@ if __name__ == "__main__":
         num =  '0'+num
 
 
-    save_to_hdf5(num, tag, inp=inp)
+    save_to_hdf5(num, tag, inpfile=inpfile, inp=inp)
