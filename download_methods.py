@@ -184,7 +184,11 @@ def extract_info(num, tag, inp='FLARES'):
 
     #Identifying the index of the spurious array within the
     #array `indices`
+<<<<<<< HEAD
     spurious_indices = np.where(((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0) | (Maperture[:,4][indices] == 0)))[0]
+=======
+    spurious_indices = np.where((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0) | (Maperture[:,4][indices] == 0))[0]
+>>>>>>> dfa7004fbb947608255c7a904717da21a9ff57be
 
     #Calculating the distance of the spurious to the other subhalos
     dist_to_others = cdist(cop[indices[spurious_indices]], cop[indices])
