@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 from astropy.cosmology import Planck13 as cosmo
 from astropy import units as u
@@ -27,6 +28,7 @@ class flares:
         #Put down the sim root location here
         #self.directory = '/cosma7/data/dp004/dc-payy1/G-EAGLE/GEAGLE_'
         self.directory = '/cosma7/data/dp004/dc-payy1/G-EAGLE/'
+        self.graph_directory = '/cosma7/data/dp004/FLARES/FLARES-1/MergerGraphs/'
         self.ref_directory = '/cosma7/data//Eagle/ScienceRuns/Planck1/L0100N1504/PE/REFERENCE/data'
         self.agn_directory = '/cosma7/data/Eagle/ScienceRuns/Planck1/L0050N0752/PE/S15_AGNdT9/data'
 
@@ -63,6 +65,8 @@ class flares:
             self.tags = np.array(['002_z009p993','003_z008p988',
                                   '004_z008p075','005_z007p050','006_z005p971',
                                   '008_z005p037'])
+
+            self.zeds = [float(tag[5:].replace('p','.')) for tag in self.tags]
 
         else:
             raise ValueError("sim_type not recognised")
@@ -210,6 +214,96 @@ class flares:
         pool.close()
 
         return Age
+
+
+    def print_graph_keys(self, halo, tag):
+        _fname = f"{self.graph_directory}/GEAGLE_{halo}/SubMgraph_{tag}.hdf5"
+
+        with h5py.File(_fname,'r') as f:
+            print(list(f.keys()))
+
+
+    def get_progenitors(self, GroupNumber, SubGroupNumber, halo, tag,
+                        properties=['prog_group_ids','prog_subgroup_ids']):
+        """
+        Convenience function for getting progenitor trees
+        """
+
+        for _prop in properties:
+            if _prop[:4] != 'prog': 
+                raise ValueError('requested property, %s, not of "progenitor" type'%_prop)
+
+        return self.get_graph_properties(GroupNumber, SubGroupNumber, halo, tag, 
+                                         properties, tree_type='prog')
+    
+        
+    def get_descendants(self, GroupNumber, SubGroupNumber, halo, tag,
+                        properties=['desc_group_ids','desc_subgroup_ids']):
+        """
+        Convenience function for getting descendant trees
+        """
+
+        for _prop in properties:
+            if _prop[:4] != 'desc': 
+                raise ValueError('requested property, %s, not of "descendant" type'%_prop)
+
+        return self.get_graph_properties(GroupNumber, SubGroupNumber, halo, tag, 
+                                         properties, tree_type='desc')
+
+
+    def get_graph_properties(self, GroupNumber, SubGroupNumber, halo, tag, 
+                        properties=['prog_group_ids','prog_subgroup_ids'],
+                        tree_type='prog'):
+        """
+        Method for getting graph properties of a given (sub)halo
+        """
+        
+        _fname = f"{self.graph_directory}/GEAGLE_{halo}/SubMgraph_{tag}.hdf5"
+        
+        with h5py.File(_fname,'r') as f:
+
+            _grp = f['SUBFIND_Group_IDs'][:]
+            _sgrp = f['SUBFIND_SubGroup_IDs'][:]
+           
+            # find index of halo in graph arrays
+            _idx = np.where((_grp == GroupNumber) &\
+                            (_sgrp == SubGroupNumber))
+
+            if tree_type == 'prog':
+                sindex = 'Prog_Start_Index'
+                nstr = 'nProgs'
+            elif tree_type == 'desc':
+                sindex = 'Desc_Start_Index'
+                nstr = 'nDescs'
+            else:
+                raise ValueError('tree type not recognised')
+
+
+            # get all progenitors
+            output = {_prop: None for _prop in properties}
+            for _prop in properties:
+                output[_prop] = self.get_link_data(f[_prop][:], 
+                                                   f[sindex][:][_idx][0], 
+                                                   f[nstr][:][_idx][0])
+
+        return output
+
+
+    def get_link_data(self, all_linked_halos, start_ind, nlinked_halos):
+        """ A helper function for extracting a halo's linked halos
+            (i.e. progenitors and descendants)
+        :param all_linked_halos: Array containing all progenitors and descendants.
+        :type all_linked_halos: float[N_linked halos]
+        :param start_ind: The start index for this halos progenitors or descendents
+                          elements in all_linked_halos
+        :type start_ind: int
+        :param nlinked_halos: The number of progenitors or descendents (linked halos)
+                              the halo in question has
+        :type nlinked_halos: int
+        :return:
+        """
+
+        return all_linked_halos[start_ind: start_ind + nlinked_halos]
 
 
 
