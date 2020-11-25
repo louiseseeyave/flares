@@ -55,19 +55,21 @@ def get_Z_LOS(s_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
     return Z_los_SD
 
 
-def get_data(ii, tag, inp = 'FLARES'):
+def get_data(ii, tag, inp = 'FLARES', data_folder='data/'):
 
     num = str(ii)
     if inp == 'FLARES':
         if len(num) == 1:
             num =  '0'+num
-        filename = './data/FLARES_{}_sp_info.hdf5'.format(num)
+        filename = './{}/FLARES_{}_sp_info.hdf5'.format(data_folder, num)
         sim_type = 'FLARES'
 
 
     elif inp == 'REF' or inp == 'AGNdT9':
-        filename = F"./data/EAGLE_{inp}_sp_info.hdf5"
+        filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
+
+    print (filename)
 
     with h5py.File(filename, 'r') as hf:
         S_len = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
@@ -110,7 +112,7 @@ def get_ZLOS(jj, S_coords, G_coords, G_mass, G_Z, G_sml, sbegin, send, gbegin, g
 if __name__ == "__main__":
 
 
-    ii, tag, inp = sys.argv[1], sys.argv[2], sys.argv[3]
+    ii, tag, inp, data_folder = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
     ## MPI parameters
     comm = MPI.COMM_WORLD
@@ -128,7 +130,9 @@ if __name__ == "__main__":
     num = str(ii)
     if len(num) == 1:
         num = '0'+num
-    S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len = get_data(num, tag, inp = inp)
+
+    print (tag, rank)
+    S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len = get_data(num, tag, inp = inp, data_folder=data_folder)
     z = float(tag[5:].replace('p','.'))
     S_coords=S_coords.T/(1+z)
     G_coords=G_coords.T/(1+z)
@@ -153,13 +157,15 @@ if __name__ == "__main__":
     G_Z = G_Z[gbegin[thisok[0]]:gend[thisok[-1]]]
     G_sml = G_sml[gbegin[thisok[0]]:gend[thisok[-1]]]
 
-
     if rank!=size-1:
-        S_len = S_len[thisok[0]:thisok[-1]]
-        G_len = G_len[thisok[0]:thisok[-1]]
+        print (rank)
+        S_len = S_len[thisok[0]:thisok[-1]+1]
+        G_len = G_len[thisok[0]:thisok[-1]+1]
     else:
         S_len = S_len[thisok[0]:]
         G_len = G_len[thisok[0]:]
+
+
 
     sbegin, send = get_len(S_len)
     gbegin, gend = get_len(G_len)
@@ -167,7 +173,7 @@ if __name__ == "__main__":
     start = timeit.default_timer()
     calc_Zlos = partial(get_ZLOS, S_coords=S_coords, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, sbegin=sbegin, send=send, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins)
     pool = schwimmbad.MultiPool(processes=4)
-    tZlos = np.concatenate(np.array(list(pool.map(calc_Zlos, np.arange(0,len(sbegin))))))
+    tZlos = np.concatenate(np.array(list(pool.map(calc_Zlos, np.arange(0,len(sbegin), dtype=np.int64)))))
     pool.close()
     stop = timeit.default_timer()
     print (F"Took {np.round(stop - start, 6)} seconds for rank = {rank}")
@@ -188,18 +194,17 @@ if __name__ == "__main__":
         if inp == 'FLARES':
             if len(num) == 1:
                 num =  '0'+num
-            filename = 'data2/FLARES_{}_sp_info.hdf5'.format(num)
+            filename = './{}/FLARES_{}_sp_info.hdf5'.format(data_folder,num)
             sim_type = 'FLARES'
 
 
         elif inp == 'REF' or inp == 'AGNdT9':
-            filename = F"EAGLE_{inp}_sp_info.hdf5"
+            filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
             sim_type = 'PERIODIC'
 
         print(F"Wrting out line-of-sight metal density to {filename}")
-        print (Zlos)
 
         fl = flares.flares(fname = filename,sim_type = sim_type)
 
         fl.create_dataset(Zlos, 'S_los', '{}/Particle'.format(tag),
-            desc = 'Star particle line-of-sight metal column density along the z-axis', unit = 'Msun/pc^2', overwrite=True)
+            desc = 'Star particle line-of-sight metal column density along the z-axis', unit = 'Msun/pc^2', overwrite=False)
