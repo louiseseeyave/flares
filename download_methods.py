@@ -36,50 +36,6 @@ def ndix_unique(x):
     return u, np.split(ix_ndim, ix_u[1:])
 
 
-def extract_subfind_info(fname='data/flares.hdf5', inp='FLARES',
-                         properties = {'properties': ['MassType'],
-                                       'conv_factor': [1e10],
-                                       'save_str': ['MassType']},
-                         overwrite=False, threads=8, verbose=False):
-
-    fl = flares.flares(fname,inp)
-    indices = fl.load_dataset('Indices')
-
-    for halo in fl.halos:
-
-        print(halo)
-
-        fl.create_group(halo)
-
-        for tag in fl.tags:
-
-            fl.create_group('%s/%s'%(halo,tag))
-            fl.create_group('%s/%s/Galaxy'%(halo,tag))
-
-            print(tag)
-
-            halodir = fl.directory+'/GEAGLE_'+halo+'/data/'
-
-            props = properties['properties']
-            conv_factor = properties['conv_factor']
-            save_str = properties['save_str']
-
-            for _prop,_conv,_save in zip(props,conv_factor,save_str):
-
-                if (fl._check_hdf5('%s/%s/Subhalo/%s'%(halo,tag,_prop)) is False) |\
-                         (overwrite == True):
-
-                    _arr = E.read_array("SUBFIND", halodir, tag,
-                                        "/Subhalo/%s"%_prop,
-                                        numThreads=threads, noH=True) * _conv
-
-
-                    fl.create_dataset(_arr[indices[halo][tag].astype(int)], _save,
-                                      '%s/%s/Galaxy/'%(halo,tag), overwrite=True, verbose=verbose)
-
-
-
-
 def extract_info(num, tag, inp='FLARES'):
 
     """
