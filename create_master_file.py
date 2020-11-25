@@ -5,7 +5,7 @@ fl = flares.flares('./data/flares.hdf5',sim_type='FLARES')
 
 in_dir = './data/'
 
-with h5py.File('./data/flares.hdf5','w') as outfile:
+with h5py.File('./data/flares.hdf5','a') as outfile:
 
     for halo in fl.halos:
         print(halo)
