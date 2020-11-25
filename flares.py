@@ -9,7 +9,7 @@ import h5py
 import schwimmbad
 from functools import partial
 import eagle_IO.eagle_IO as E
-from numba import jit, njit
+from numba import jit, njit, float64, int32, prange
 
 norm = np.linalg.norm
 conv = (u.solMass/u.Mpc**2).to(u.solMass/u.pc**2)
@@ -63,6 +63,7 @@ class flares:
             self.tags = np.array(['002_z009p993','003_z008p988',
                                   '004_z008p075','005_z007p050','006_z005p971',
                                   '008_z005p037'])
+
         else:
             raise ValueError("sim_type not recognised")
 
@@ -77,13 +78,13 @@ class flares:
 
 
     def print_attributes(self,obj):
-        with h5py.File(self.fname,'r') as f: 
+        with h5py.File(self.fname,'r') as f:
             _attrs = list(f[obj].attrs.keys())
             if len(_attrs) < 1:
                 print("No attributes.")
             else:
                 for key in _attrs:
-                    print("%s:"%key, f[obj].attrs[key])     
+                    print("%s:"%key, f[obj].attrs[key])
 
 
     # @jit
@@ -125,7 +126,7 @@ class flares:
         hist = np.float64(hist)
         phi = (hist / volume) / (massBinLimits[1] - massBinLimits[0])
 
-        # p = 0.95 
+        # p = 0.95
         # phi_sigma = np.array([scipy.stats.chi2.ppf((1.-p)/2.,2*hist)/2.,
         #                       scipy.stats.chi2.ppf(p+(1.-p)/2.,2*(hist+1))/2.])
 
@@ -174,7 +175,7 @@ class flares:
 
 
         err_up, err_lo, mask = yerr(phi,phi_sigma)
-        
+
         # err_lo = np.log10(phi) - np.log10(phi - phi_sigma[0])
         # err_up = np.log10(phi) - np.log10(phi + phi_sigma[1])
 
@@ -190,10 +191,10 @@ class flares:
     Age of stellar particles
     """
 
-    def get_star_formation_time(self, SFT, redshift):
+    def get_star_formation_time(self, SFT):
 
         SFz = (1/SFT) - 1.
-        SFz = self.cosmo.age(redshift).value - self.cosmo.age(SFz).value
+        SFz = self.cosmo.age(SFz).value
         return SFz
 
     def get_age(self, arr, z, numThreads = 4):
@@ -205,8 +206,8 @@ class flares:
         else:
             pool = schwimmbad.MultiPool(processes=numThreads)
 
-        calc = partial(self.get_star_formation_time, redshift = z)
-        Age = np.array(list(pool.map(calc,arr)))
+        Age = self.cosmo.age(z).value - np.array(list(pool.map(self.get_star_formation_time,arr)))
+        pool.close()
 
         return Age
 
@@ -285,7 +286,7 @@ class flares:
 
 
     def load_dataset(self,name,arr_type='Galaxy'):
-        """ 
+        """
         Load a dataset for *all* halos and tags
         """
 
@@ -350,7 +351,7 @@ class flares:
 
     def get_particles(self, p_str='S_Age',halo='00',tag='005_z010p000', verbose=False):
         """
-        Grab particle properties for the given halo/tag and the given datasets 
+        Grab particle properties for the given halo/tag and the given datasets
 
         Args:
             p_str (str or list) particle dataset string, or a list / tuple of these strings
@@ -359,21 +360,21 @@ class flares:
             verbose (bool)
 
         Returns:
-            out (dict)  
+            out (dict)
         """
         if verbose: print("Getting particle array lengths...")
         # get particle array lengths for each galaxy
         S_length = self.load_dataset('S_Length',arr_type='Galaxy')
         # subset halo/tag
         S_len = S_length[halo][tag]
-    
+
         if verbose: print("Finding array indices...")
         # find beginning:end indexes for each galaxy
         begin = np.zeros(len(S_len), dtype = np.int64)
         end = np.zeros(len(S_len), dtype = np.int64)
         begin[1:] = np.cumsum(S_len)[:-1]
         end = np.cumsum(S_len)
-    
+
         if verbose: print("Getting particle data...")
         _p = {}
         if type(p_str) in [list,tuple]:
@@ -381,22 +382,22 @@ class flares:
                 _p[_str] = self._load_single_dataset(_str,halo,tag,arr_type='Particle')
         else:
             _p[p_str] = self._load_single_dataset(p_str,halo,tag,arr_type='Particle')
-    
-    
+
+
         if verbose: print("Subsetting particles for each galaxy...")
         # output dictionary of particle properties
         out = {}
         for i in np.arange(len(S_len)): # loop through gals
             out[i] = {}
-    
+
             # if more than one property, loop through them
             if type(p_str) in [list,tuple]:
                 for _str in p_str:
                     out[i][_str] = _p[_str][begin[i]:end[i]]
             else:
                 out[i][p_str] = _p[p_str][begin[i]:end[i]]
-    
-    
+
+
         return out
 
 
@@ -597,51 +598,6 @@ class flares:
         return parts_in_group
 
 
-@jit()
-def get_Z_LOS(s_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
-
-    """
-
-    Compute the los metal surface density (in g/cm^2) for star particles inside the galaxy taking
-    the z-axis as the los.
-    Args:
-        s_cood (3d array): stellar particle coordinates
-        g_cood (3d array): gas particle coordinates
-        g_mass (1d array): gas particle mass
-        g_Z (1d array): gas particle metallicity
-        g_sml (1d array): gas particle smoothing length
-
-    """
-    n = len(s_cood)
-    Z_los_SD = np.zeros(n)
-    #Fixing the observer direction as z-axis. Use make_faceon() for changing the
-    #particle orientation to face-on
-    xdir, ydir, zdir = 0, 1, 2
-    for ii in range(n):
-
-        thisspos = s_cood[ii]
-        ok = (g_cood[:,zdir] > thisspos[zdir])
-        thisgpos = g_cood[ok]
-        thisgsml = g_sml[ok]
-        thisgZ = g_Z[ok]
-        thisgmass = g_mass[ok]
-        x = thisgpos[:,xdir] - thisspos[xdir]
-        y = thisgpos[:,ydir] - thisspos[ydir]
-
-        b = np.sqrt(x*x + y*y)
-        boverh = b/thisgsml
-
-        ok = (boverh <= 1.)
-
-        kernel_vals = np.array([lkernel[int(kbins*ll)] for ll in boverh[ok]])
-
-        Z_los_SD[ii] = np.sum((thisgmass[ok]*thisgZ[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals) #in units of Msun/Mpc^2
-
-    Z_los_SD*=conv #in units of Msun/pc^2
-
-    return Z_los_SD
-
-
 def get_recent_SFR(tag, t = 100, inp = 'FLARES'):
 
     #t is time in Myr
@@ -670,7 +626,7 @@ def get_recent_SFR(tag, t = 100, inp = 'FLARES'):
         with h5py.File(sim, 'r') as hf:
 
             S_len = np.array(hf[F'{tag}/Galaxy'].get('S_Length'), dtype = np.int64)
-            S_mass = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)
+            S_mass = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)*1e10
             S_age = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64)*1e3 #Age is in Gyr,
                                                                          #so converting the array to Myr
 
