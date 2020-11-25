@@ -154,6 +154,11 @@ def extract_info(num, tag, inp='FLARES'):
 
     ####### Particle properties #######
 
+    #dm particle
+    dm_cood = E.read_array('PARTDATA', sim, tag, '/PartType1/Coordinates', noH=True, physicalUnits=True, numThreads=4)
+    dm_sgrpn = E.read_array('PARTDATA', sim, tag, '/PartType1/SubGroupNumber', numThreads=4)
+    dm_grpn = E.read_array('PARTDATA', sim, tag, '/PartType1/GroupNumber', numThreads=4)
+
     #Star particle
     sp_cood = E.read_array('PARTDATA', sim, tag, '/PartType4/Coordinates', noH=True, physicalUnits=True, numThreads=4)
     sp_sgrpn = E.read_array('PARTDATA', sim, tag, '/PartType4/SubGroupNumber', numThreads=4)
@@ -168,10 +173,17 @@ def extract_info(num, tag, inp='FLARES'):
     #Black hole particle
     #subgrid properties are theones required
     #Only for high masses the subhalo and particle properties trace each other
-    bh_sgrpn = E.read_array('PARTDATA', sim, tag, '/PartType5/SubGroupNumber', numThreads=4)
-    bh_grpn = E.read_array('PARTDATA', sim, tag, '/PartType5/GroupNumber', numThreads=4)
-    bh_mass = E.read_array('PARTDATA', sim, tag, '/PartType5/BH_Mass', noH=True, physicalUnits=True, numThreads=4)
-    bh_cood = E.read_array('PARTDATA', sim, tag, '/PartType5/Coordinates', numThreads=4, noH=True, physicalUnits=False)
+    try:
+        bh_sgrpn = E.read_array('PARTDATA', sim, tag, '/PartType5/SubGroupNumber', numThreads=4)
+        bh_grpn = E.read_array('PARTDATA', sim, tag, '/PartType5/GroupNumber', numThreads=4)
+        bh_mass = E.read_array('PARTDATA', sim, tag, '/PartType5/BH_Mass', noH=True, physicalUnits=True, numThreads=4)
+        bh_cood = E.read_array('PARTDATA', sim, tag, '/PartType5/Coordinates', numThreads=4, noH=True, physicalUnits=True)
+        BH = True
+    except:
+        BH = False
+        print ("No Black hole particles found")
+
+
 
 
     ###########################  For identifying spurious galaxies and remerging them to the parent  ###########################
@@ -186,32 +198,36 @@ def extract_info(num, tag, inp='FLARES'):
     #array `indices`
 
     spurious_indices = np.where((Maperture[:,0][indices] == 0) | (Maperture[:,1][indices] == 0) | (Maperture[:,4][indices] == 0))[0]
+    if len(spurious_indices)>0:
+        #Calculating the distance of the spurious to the other subhalos
+        dist_to_others = cdist(cop[indices[spurious_indices]], cop[indices])
 
-    #Calculating the distance of the spurious to the other subhalos
-    dist_to_others = cdist(cop[indices[spurious_indices]], cop[indices])
+        #To take into account the fact that the spurious subhalos
+        #themselves as well as others are present within
+        #`indices` at the moment
+        dist_to_others[:, spurious_indices] = np.nan
 
-    #To take into account the fact that the spurious subhalos
-    #themselves as well as others are present within
-    #`indices` at the moment
-    dist_to_others[:, spurious_indices] = np.nan
+        #Parent is classified as the nearest subhalo to the spurious
+        parent = indices[np.nanargmin(dist_to_others, axis=1)]
 
-    #Parent is classified as the nearest subhalo to the spurious
-    parent = indices[np.nanargmin(dist_to_others, axis=1)]
+        #returns the index of the parent and its associated spurious
+        #as an array of arrays. `spurious_of_parent` is linked to
+        #the `spurious` which is defined below so you can get the
+        #original index back wrt to the whole dataset
+        parent, spurious_of_parent = ndix_unique(parent)
 
-    #returns the index of the parent and its associated spurious
-    #as an array of arrays. `spurious_of_parent` is linked to
-    #the `spurious` which is defined below so you can get the
-    #original index back wrt to the whole dataset
-    parent, spurious_of_parent = ndix_unique(parent)
+        #remove the spurious from indices so they aren't counted twice
+        #in the subhalo/particle property collection, but retain
+        #information (`spurious` array) on where they are within the
+        #whole dataset for later use
+        spurious = indices[spurious_indices]
+        indices = np.delete(indices, spurious_indices)
 
-    #remove the spurious from indices so they aren't counted twice
-    #in the subhalo/particle property collection, but retain
-    #information (`spurious` array) on where they are within the
-    #whole dataset for later use
-    spurious = indices[spurious_indices]
-    indices = np.delete(indices, spurious_indices)
+        del spurious_indices, dist_to_others
+        sp_ok = True
 
-    del spurious_indices, dist_to_others
+    else:
+        sp_ok = False
 
     gc.collect()
 
@@ -226,14 +242,14 @@ def extract_info(num, tag, inp='FLARES'):
         print("Extracting required properties for {} subhalos from {} region {} at z = {} of boxsize = {}".format(len(indices), inp, num, z, boxl))
 
     #For getting black hole subgrid masses
-    tbhindex = np.zeros(num_subhalos)
-    tbh_cood = np.zeros((num_subhalos, 3))
-    tbh_mass = np.zeros(num_subhalos)
+    tbhindex = np.zeros(num_subhalos, dtype = np.int32)
+    tbh_cood = np.zeros((num_subhalos, 3), dtype = np.float64)
+    tbh_mass = np.zeros(num_subhalos, dtype = np.float32)
 
     #Arrays that needs addition:
-    tmstar_spurious = np.zeros(num_subhalos)
-    tsfr_inst_spurious = np.zeros(num_subhalos)
-    tSubhaloMass_spurious = np.zeros(num_subhalos)
+    tmstar_spurious = np.zeros(num_subhalos, dtype = np.float32)
+    tsfr_inst_spurious = np.zeros(num_subhalos, dtype = np.float64)
+    tSubhaloMass_spurious = np.zeros(num_subhalos, dtype = np.float32)
 
 
     if inp == 'FLARES':
@@ -269,6 +285,15 @@ def extract_info(num, tag, inp='FLARES'):
         # print (cop[thisok])
 
         #Dividing the gas particles into a cell for current task
+        dd = np.ones(len(dm_cood), dtype=bool)
+        for xx in range(3):
+            dd*=np.logical_or((min_xyz[xx]-dl<=dm_cood[:,xx]/a)*(dm_cood[:,xx]/a<=max_xyz[xx]+dl), np.logical_or((min_xyz[xx]-dl<=dm_cood[:,xx]/a+boxl)*(dm_cood[:,xx]/a+boxl<=max_xyz[xx]+dl), (min_xyz[xx]-dl<=dm_cood[:,xx]/a-boxl)*(dm_cood[:,xx]/a-dl<=max_xyz[xx]+dl)))
+        dd = np.where(dd)[0]
+
+        dm_cood = dm_cood[dd]
+        dm_sgrpn = dm_sgrpn[dd]
+        dm_grpn = dm_grpn[dd]
+
         gg = np.ones(len(gp_cood), dtype=bool)
         for xx in range(3):
             gg*=np.logical_or((min_xyz[xx]-dl<=gp_cood[:,xx]/a)*(gp_cood[:,xx]/a<=max_xyz[xx]+dl), np.logical_or((min_xyz[xx]-dl<=gp_cood[:,xx]/a+boxl)*(gp_cood[:,xx]/a+boxl<=max_xyz[xx]+dl), (min_xyz[xx]-dl<=gp_cood[:,xx]/a-boxl)*(gp_cood[:,xx]/a-dl<=max_xyz[xx]+dl)))
@@ -290,80 +315,96 @@ def extract_info(num, tag, inp='FLARES'):
         sp_grpn = sp_grpn[ss]
 
         #Dividing the black hole particles into a cell for current task
-        bb = np.ones(len(bh_cood), dtype=bool)
-        for xx in range(3):
-            bb*=np.logical_or((min_xyz[xx]-dl<=bh_cood[:,xx]/a)*(bh_cood[:,xx]/a<=max_xyz[xx]+dl), np.logical_or((min_xyz[xx]-dl<=bh_cood[:,xx]/a+boxl)*(bh_cood[:,xx]/a+boxl<=max_xyz[xx]+dl), (min_xyz[xx]-dl<=bh_cood[:,xx]/a-boxl)*(bh_cood[:,xx]/a-boxl<=max_xyz[xx]+dl)))
-        bb = np.where(bb)[0]
+        if BH:
+            bb = np.ones(len(bh_cood), dtype=bool)
+            for xx in range(3):
+                bb*=np.logical_or((min_xyz[xx]-dl<=bh_cood[:,xx]/a)*(bh_cood[:,xx]/a<=max_xyz[xx]+dl), np.logical_or((min_xyz[xx]-dl<=bh_cood[:,xx]/a+boxl)*(bh_cood[:,xx]/a+boxl<=max_xyz[xx]+dl), (min_xyz[xx]-dl<=bh_cood[:,xx]/a-boxl)*(bh_cood[:,xx]/a-boxl<=max_xyz[xx]+dl)))
+            bb = np.where(bb)[0]
 
-        bh_sgrpn = bh_sgrpn[bb]
-        bh_grpn = bh_grpn[bb]
-        bh_mass = bh_mass[bb]
-
-        del bh_cood
+            bh_sgrpn = bh_sgrpn[bb]
+            bh_grpn = bh_grpn[bb]
+            bh_mass = bh_mass[bb]
+            bh_cood = bh_cood[bb]
 
     gc.collect()
 
-    tsnum = np.zeros(len(thisok)+1).astype(int)
-    tgnum = np.zeros(len(thisok)+1).astype(int)
+    tdnum = np.zeros(len(thisok)+1, dtype = np.int32)
+    tsnum = np.zeros(len(thisok)+1, dtype = np.int32)
+    tgnum = np.zeros(len(thisok)+1, dtype = np.int32)
     ind = np.array([])
 
+    dn = len(dm_grpn)
     sn = len(sp_grpn)
     gn = len(gp_grpn)
 
-    tsindex = np.empty(sn)
-    tgindex = np.empty(gn)
-
-    tscood = np.empty((sn,3))
-    tgcood = np.empty((gn,3))
+    tdindex = np.zeros(dn, dtype = np.int32)
+    tsindex = np.zeros(sn, dtype = np.int32)
+    tgindex = np.zeros(gn, dtype = np.int32)
 
     gc.collect()
 
-    #Getting the indices (major) and the calculation of Z-LOS are the bottlenecks of this code. Maybe try
-    #cythonizing the Z-LOS part. Don't know how to change the logical operation part.
     kk = 0
-    dist_sq = 0.03*0.03 #in pMpc^2 for 30pkpc Aperture
+    dist = 0.03 #in pMpc for 30pkpc Aperture
     bounds = np.array([boxl, boxl, boxl])   #https://stackoverflow.com/a/11109244
     for ii, jj in enumerate(thisok):
 
         #start = timeit.default_timer()
 
+        d_ok = np.where((dm_sgrpn-sgrpno[jj]==0) & (dm_grpn-grpno[jj]==0))[0]
+        tmp = dm_cood[d_ok]-cop[jj]
+        if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+        d_ok = d_ok[norm(tmp,axis=1)<=dist]
+
         s_ok = np.where((sp_sgrpn-sgrpno[jj]==0) & (sp_grpn-grpno[jj]==0))[0]
         tmp = sp_cood[s_ok]-cop[jj]
         if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
-        s_ok = s_ok[np.sum(tmp**2,axis=1)<=dist_sq]
+        s_ok = s_ok[norm(tmp,axis=1)<=dist]
 
         g_ok = np.where((gp_sgrpn-sgrpno[jj]==0) & (gp_grpn-grpno[jj]==0))[0]
         tmp = gp_cood[g_ok]-cop[jj]
         if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
-        g_ok = g_ok[np.sum(tmp**2,axis=1)<=dist_sq]
+        g_ok = g_ok[norm(tmp,axis=1)<=dist]
+        if BH:
+            bh_ok = np.where((bh_sgrpn-sgrpno[jj]==0) & (bh_grpn-grpno[jj]==0))[0]
+            tmp = bh_cood[bh_ok]-cop[jj]
+            if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+            bh_ok = bh_ok[norm(tmp,axis=1)<=dist]
 
-        bh_ok = np.where((bh_sgrpn-sgrpno[jj]==0) & (bh_grpn-grpno[jj]==0))[0]
+        if sp_ok:
+            if jj in parent:
+                this_spurious = np.where(parent == jj)[0]
 
-        if jj in parent:
-            this_spurious = np.where(parent == jj)[0]
+                for _jj in spurious[spurious_of_parent[this_spurious[0]]]:
 
-            for _jj in spurious[spurious_of_parent[this_spurious[0]]]:
+                    #To apply Will's recombine method, it should
+                    #be applied here, instead of the next block
 
-                #To apply Will's recombine method, it should
-                #be applied here, instead of the next block
+                    spurious_d_ok = np.where((dm_sgrpn-sgrpno[_jj]==0) & (dm_grpn-grpno[_jj]==0))[0]
+                    tmp = dm_cood[spurious_d_ok]-cop[jj]
+                    if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+                    d_ok = np.append(d_ok, spurious_d_ok[norm(tmp,axis=1)<=dist])
 
-                spurious_s_ok = np.where((sp_sgrpn-sgrpno[_jj]==0) & (sp_grpn-grpno[_jj]==0))[0]
-                tmp = sp_cood[spurious_s_ok]-cop[jj]
-                if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
-                s_ok = np.append(s_ok, spurious_s_ok[np.sum(tmp**2,axis=1)<=dist_sq])
+                    spurious_s_ok = np.where((sp_sgrpn-sgrpno[_jj]==0) & (sp_grpn-grpno[_jj]==0))[0]
+                    tmp = sp_cood[spurious_s_ok]-cop[jj]
+                    if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+                    s_ok = np.append(s_ok, spurious_s_ok[norm(tmp,axis=1)<=dist])
 
-                spurious_g_ok = np.where((gp_sgrpn-sgrpno[_jj]==0) & (gp_grpn-grpno[_jj]==0))[0]
-                tmp = gp_cood[spurious_g_ok]-cop[jj]
-                if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
-                g_ok = np.append(g_ok, spurious_g_ok[np.sum(tmp**2,axis=1)<=dist_sq])
+                    spurious_g_ok = np.where((gp_sgrpn-sgrpno[_jj]==0) & (gp_grpn-grpno[_jj]==0))[0]
+                    tmp = gp_cood[spurious_g_ok]-cop[jj]
+                    if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+                    g_ok = np.append(g_ok, spurious_g_ok[norm(tmp,axis=1)<=dist])
 
-                bh_ok = np.append(bh_ok, np.where((bh_sgrpn-sgrpno[_jj]==0) & (bh_grpn-grpno[_jj]==0))[0])
+                    if BH:
+                        spurious_bh_ok = np.where((bh_sgrpn-sgrpno[_jj]==0) & (bh_grpn-grpno[_jj]==0))[0]
+                        tmp = bh_cood[spurious_bh_ok]-cop[jj]
+                        if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+                        bh_ok = np.append(bh_ok, spurious_bh_ok[norm(tmp,axis=1)<=dist])
 
-            #Add in here the subhalo properties that needed
-            #to be added due to spurious
-            tsfr_inst_spurious[jj] = np.sum(gp_sfr[g_ok])
-            tmstar_spurious[jj] = np.sum(mstar[spurious[spurious_of_parent[this_spurious[0]]]])
-            tSubhaloMass_spurious[jj] = np.sum(SubhaloMass[spurious[spurious_of_parent[this_spurious[0]]]])
+                #Add in here the subhalo properties that needed
+                #to be added due to spurious
+                tsfr_inst_spurious[jj] = np.sum(gp_sfr[g_ok])
+                tmstar_spurious[jj] = np.sum(mstar[spurious[spurious_of_parent[this_spurious[0]]]])
+                tSubhaloMass_spurious[jj] = np.sum(SubhaloMass[spurious[spurious_of_parent[this_spurious[0]]]])
 
 
         #stop = timeit.default_timer()
@@ -374,36 +415,39 @@ def extract_info(num, tag, inp='FLARES'):
             # start = timeit.default_timer()
 
             #Extracting subgrid black hole properties
-            if len(bh_ok>0):
+            if BH:
+                if len(bh_ok>0):
 
-                tbh_max_index = np.argmax(bh_mass[bh_ok])
-                tbh_mass[jj] = bh_mass[bh_ok[tbh_max_index]]
+                    tbh_max_index = np.argmax(bh_mass[bh_ok])
+                    tbh_mass[jj] = bh_mass[bh_ok[tbh_max_index]]
 
-                if inp=='FLARES':
-                    tbhindex[jj] = bh_ok[tbh_max_index]
-                else:
-                    tbhindex[jj] = bb[bh_ok[tbh_max_index]]
+                    if inp=='FLARES':
+                        tbhindex[jj] = bh_ok[tbh_max_index]
+                    else:
+                        tbhindex[jj] = bb[bh_ok[tbh_max_index]]
 
-
+            tdnum[kk+1] = len(d_ok)
             tsnum[kk+1] = len(s_ok)
             tgnum[kk+1] = len(g_ok)
 
+            dcum = np.cumsum(tdnum)
             scum = np.cumsum(tsnum)
             gcum = np.cumsum(tgnum)
+            dbeg = dcum[kk]
+            dend = dcum[kk+1]
             sbeg = scum[kk]
             send = scum[kk+1]
             gbeg = gcum[kk]
             gend = gcum[kk+1]
 
             if inp=='FLARES':
+                tdindex[dbeg:dend] = d_ok
                 tsindex[sbeg:send] = s_ok
                 tgindex[gbeg:gend] = g_ok
             else:
+                tdindex[dbeg:dend] = dd[d_ok]
                 tsindex[sbeg:send] = ss[s_ok]
                 tgindex[gbeg:gend] = gg[g_ok]
-
-            tscood[sbeg:send] = sp_cood[s_ok]
-            tgcood[gbeg:gend] = gp_cood[g_ok]
 
             # stop = timeit.default_timer()
             # print ("Assigning arrays took {}s".format(np.round(stop - start,6)))
@@ -417,7 +461,9 @@ def extract_info(num, tag, inp='FLARES'):
 
     ##End of loop ii, jj##
 
-    del sp_sgrpn, sp_grpn, sp_cood, gp_sgrpn, gp_grpn, gp_cood, gp_sfr, bh_sgrpn, bh_grpn, bh_mass
+    del dm_sgrpn, dm_grpn, dm_cood, sp_sgrpn, sp_grpn, sp_cood, gp_sgrpn, gp_grpn, gp_cood, gp_sfr
+    if BH:
+        del bh_sgrpn, bh_grpn, bh_mass
 
     gc.collect()
 
@@ -430,26 +476,29 @@ def extract_info(num, tag, inp='FLARES'):
     tsfr_inst_spurious = tsfr_inst_spurious[thisok]
     tSubhaloMass_spurious = tSubhaloMass_spurious[thisok]
 
+    tdtot = np.sum(tdnum)
     tstot = np.sum(tsnum)
     tgtot = np.sum(tgnum)
 
+    tdnum = tdnum[1:len(thisok)+1]
     tsnum = tsnum[1:len(thisok)+1]
     tgnum = tgnum[1:len(thisok)+1]
 
+    tdindex = tdindex[:tdtot]
     tsindex = tsindex[:tstot]
     tgindex = tgindex[:tgtot]
 
-    tscood = tscood[:tstot]
-    tgcood = tgcood[:tgtot]
-
-
     comm.Barrier()
+
+    gc.collect()
+
 
     if rank == 0:
 
         print ("Gathering data from different processes")
 
     indices = comm.gather(thisok, root=0)
+
 
     bhindex = comm.gather(tbhindex, root=0)
     bh_mass = comm.gather(tbh_mass, root=0)
@@ -458,12 +507,24 @@ def extract_info(num, tag, inp='FLARES'):
     sfr_inst_spurious = comm.gather(tsfr_inst_spurious, root=0)
     SubhaloMass_spurious = comm.gather(tSubhaloMass_spurious, root=0)
 
+    del thisok, tbhindex, tbh_mass, tmstar_spurious, tsfr_inst_spurious, tSubhaloMass_spurious
+    gc.collect()
+
+    dnum = comm.gather(tdnum, root=0)
+    del tdnum
     snum = comm.gather(tsnum, root=0)
+    del tsnum
     gnum = comm.gather(tgnum, root=0)
+    del tgnum
+
+    dindex = comm.gather(tdindex, root=0)
+    del tdindex
     sindex = comm.gather(tsindex, root=0)
+    del tsindex
     gindex = comm.gather(tgindex, root=0)
-    scood = comm.gather(tscood, root=0)
-    gcood = comm.gather(tgcood, root=0)
+    del tgindex
+
+    gc.collect()
 
     ok_centrals = 0.
 
@@ -472,6 +533,7 @@ def extract_info(num, tag, inp='FLARES'):
         print ("Gathering completed")
 
         indices = np.concatenate(np.array(indices))
+        dindex = np.concatenate(np.array(dindex))
         sindex = np.concatenate(np.array(sindex))
         gindex = np.concatenate(np.array(gindex))
         bhindex = np.concatenate(np.array(bhindex))
@@ -482,11 +544,10 @@ def extract_info(num, tag, inp='FLARES'):
         sfr_inst_spurious = np.concatenate(np.array(sfr_inst_spurious))
         SubhaloMass_spurious = np.concatenate(np.array(SubhaloMass_spurious))
 
+        dnum = np.concatenate(np.array(dnum))
         snum = np.concatenate(np.array(snum))
         gnum = np.concatenate(np.array(gnum))
 
-        scood = np.concatenate(np.array(scood), axis = 0)/a
-        gcood = np.concatenate(np.array(gcood), axis = 0)/a
 
         ok_centrals = grpno[indices] - 1
 
@@ -498,27 +559,30 @@ def extract_info(num, tag, inp='FLARES'):
         grpno = grpno[indices]
 
 
-    return ok_centrals, indices, sgrpno, grpno, cop, SubhaloMass, mstar, sfr_inst, snum, gnum, sindex, gindex, bhindex, scood, gcood, bh_mass
+    return ok_centrals, indices, sgrpno, grpno, cop, SubhaloMass, mstar, sfr_inst, dnum, snum, gnum, dindex, sindex, gindex, bhindex, bh_mass
 ##End of function `extract_info`
 
-def save_to_hdf5(num, tag, inpfile, inp='FLARES'):
+def save_to_hdf5(num, tag, inp='FLARES', data_folder = 'data/'):
 
     num = str(num)
     if inp == 'FLARES':
         if len(num) == 1:
             num =  '0'+num
-        filename = './FLARES_{}_sp_info.hdf5'.format(num)
+        filename = './{}/FLARES_{}_sp_info.hdf5'.format(data_folder, num)
         sim_type = 'FLARES'
 
 
     elif inp == 'REF' or inp == 'AGNdT9':
-        filename = F"./EAGLE_{inp}_sp_info.hdf5"
+        filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
 
 
     else:
         ValueError("Type of input simulation not recognized")
 
+
+
+    ok_centrals, indices, sgrpno, grpno, cop, SubhaloMass, mstar, sfr_inst, dnum, snum, gnum, dindex, sindex, gindex, bhindex, bh_mass = extract_info(num, tag, inp)
 
 
     ## MPI parameters
@@ -530,10 +594,12 @@ def save_to_hdf5(num, tag, inpfile, inp='FLARES'):
 
         print ("#################    Saving required properties to hdf5     #############")
         print ("#################   Number of processors being used is {}   #############".format(size))
+        print (F"Writing to {filename}")
 
+    if rank != 0:
+        del ok_centrals, indices, sgrpno, grpno, cop, SubhaloMass, mstar, sfr_inst, dnum, snum, gnum, dindex, sindex, gindex, bhindex, bh_mass
 
-    ok_centrals, indices, sgrpno, grpno, cop, SubhaloMass, mstar, sfr_inst, snum, gnum, sindex, gindex, bhindex, scood, gcood, bh_mass = extract_info(num, tag, inp)
-
+    gc.collect()
 
     if rank == 0:
 
@@ -558,8 +624,11 @@ def save_to_hdf5(num, tag, inpfile, inp='FLARES'):
 
         fl.create_dataset(indices, 'Indices', '{}/Galaxy'.format(tag), dtype = 'int64',
             desc = 'Index of the galaxy in the resimulation')
+        fl.create_dataset(ok_centrals, 'Central_Indices', '{}/Galaxy'.format(tag), dtype = 'int64',
+            desc = 'Index of the central galaxies in the resimulation')
 
-
+        fl.create_dataset(dindex, 'DM_Index', '{}/Particle'.format(tag), dtype = 'int64',
+            desc = 'Index of selected DM particles in the particle data')
         fl.create_dataset(sindex, 'S_Index', '{}/Particle'.format(tag), dtype = 'int64',
             desc = 'Index of selected star particles in the particle data')
         fl.create_dataset(gindex, 'G_Index', '{}/Particle'.format(tag), dtype = 'int64',
@@ -573,7 +642,8 @@ def save_to_hdf5(num, tag, inpfile, inp='FLARES'):
         fl.create_dataset(sgrpno, 'SubGroupNumber', '{}/Galaxy'.format(tag), dtype = 'int64',
             desc = 'Subgroup Number of the galaxy')
 
-
+        fl.create_dataset(dnum, 'DM_Length', '{}/Galaxy'.format(tag), dtype = 'int64',
+            desc = 'Number of DM particles inside 30pkpc')
         fl.create_dataset(snum, 'S_Length', '{}/Galaxy'.format(tag), dtype = 'int64',
             desc = 'Number of star particles inside 30pkpc')
         fl.create_dataset(gnum, 'G_Length', '{}/Galaxy'.format(tag), dtype = 'int64',
@@ -592,80 +662,26 @@ def save_to_hdf5(num, tag, inpfile, inp='FLARES'):
             desc = 'Most massive black hole mass', unit = '1E10 Msun')
 
 
-        fl.create_dataset(scood.T, 'S_Coordinates', '{}/Particle'.format(tag),
-            desc = 'Star particle coordinates', unit = 'cMpc')
-        fl.create_dataset(gcood.T, 'G_Coordinates', '{}/Particle'.format(tag),
-            desc = 'Gas particle coordinates', unit = 'cMpc')
-
-
-        del grpno, sgrpno, snum, gnum, SubhaloMass, mstar, sfr_inst, cop, scood, gcood
+        del grpno, sgrpno, dnum, snum, gnum, SubhaloMass, mstar, sfr_inst, cop
         gc.collect()
-        print ('gc collect')
 
+        print ('Completed initial writing')
 
-        nThreads=4
-        a = E.read_header('SUBFIND', sim, tag, 'ExpansionFactor')
-        z = E.read_header('SUBFIND', sim, tag, 'Redshift')
-        data = np.genfromtxt(inpfile, delimiter=',', dtype='str')
-        for ii in range(len(data)):
-            name = data[:,0][ii]
-            path = data[:,1][ii]
-            unit = data[:,3][ii]
-            desc = data[:,4][ii]
-
-            if 'PartType' in path:
-                tmp = 'PARTDATA'
-                location = 'Particle'
-                if 'PartType0' in path:
-                    sel = gindex
-                elif 'PartType4' in path:
-                    sel = sindex
-                else:
-                    nok = np.where(bh_mass==0)[0]
-                    sel = bhindex
-                    location = 'Galaxy'
-            else:
-                tmp = 'SUBFIND'
-                location = 'Galaxy'
-                if 'FOF' in path:
-                    sel = ok_centrals
-                else:
-                    sel = indices
-
-            sel = np.asarray(sel, dtype=np.int64)
-            out = E.read_array(tmp, sim, tag, path, noH=True, physicalUnits=True, numThreads=nThreads)[sel]
-
-            if 'age' in name.lower(): out = fl.get_age(out, z, nThreads)
-            if 'PartType5' in path:
-                if len(out.shape)>1:
-                    out[nok] = [0.,0.,0.]
-                else:
-                    out[nok] = 0.
-
-
-            if 'coordinates' in path.lower(): out=out.T/a
-            if 'velocity' in path.lower(): out = out.T
-
-
-            fl.create_dataset(out, name, '{}/{}'.format(tag, location),
-                desc = desc.encode('utf-8'), unit = unit.encode('utf-8'))
-
-            del out
-            gc.collect()
-
+    MPI.Finalize()
 
 
 if __name__ == "__main__":
 
-    ii, tag, inp, inpfile = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+    ii, tag, inp, data_folder = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+
 
     num = str(ii)
     tag = str(tag)
     inp = str(inp)
-    inpfile = str(inpfile)
+    data_folder = str(data_folder)
 
     if len(num) == 1:
         num =  '0'+num
 
 
-    save_to_hdf5(num, tag, inpfile=inpfile, inp=inp)
+    save_to_hdf5(num, tag, inp=inp, data_folder=data_folder)
