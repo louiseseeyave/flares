@@ -124,7 +124,7 @@ class flares:
         return centre, radius, mindist
 
 
-    def calc_df(self, mstar, tag, volume, massBinLimits):
+    def calc_df(self, mstar, volume, massBinLimits):
 
         hist, dummy = np.histogram(np.log10(mstar), bins = massBinLimits)
         hist = np.float64(hist)
