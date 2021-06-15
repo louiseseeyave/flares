@@ -443,12 +443,13 @@ class flares:
             #dset.close()
 
 
-    def get_particles(self, p_str='S_Age',halo='00',tag='005_z010p000', verbose=False):
+    def get_particles(self, p_str, length_array, halo='00',tag='005_z010p000', verbose=False):
         """
         Grab particle properties for the given halo/tag and the given datasets
 
         Args:
             p_str (str or list) particle dataset string, or a list / tuple of these strings
+            length_array (array or list) lengths of particle arrays
             halo (str)
             tag (str)
             verbose (bool)
@@ -458,9 +459,10 @@ class flares:
         """
         if verbose: print("Getting particle array lengths...")
         # get particle array lengths for each galaxy
-        S_length = self.load_dataset('S_Length',arr_type='Galaxy')
+        # S_length = self.load_dataset('S_Length',arr_type='Galaxy')
         # subset halo/tag
-        S_len = S_length[halo][tag]
+        # S_len = S_length[halo][tag]
+        S_len = length_array
 
         if verbose: print("Finding array indices...")
         # find beginning:end indexes for each galaxy
