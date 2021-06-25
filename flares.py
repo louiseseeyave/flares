@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 from astropy.cosmology import Planck13 as cosmo
 from astropy import units as u
@@ -9,7 +10,7 @@ import h5py
 import schwimmbad
 from functools import partial
 import eagle_IO.eagle_IO as E
-from numba import jit, njit
+from numba import jit, njit, float64, int32, prange
 
 norm = np.linalg.norm
 conv = (u.solMass/u.Mpc**2).to(u.solMass/u.pc**2)
@@ -27,6 +28,7 @@ class flares:
         #Put down the sim root location here
         #self.directory = '/cosma7/data/dp004/dc-payy1/G-EAGLE/GEAGLE_'
         self.directory = '/cosma7/data/dp004/dc-payy1/G-EAGLE/'
+        self.graph_directory = '/cosma7/data/dp004/FLARES/FLARES-1/MergerGraphs/'
         self.ref_directory = '/cosma7/data//Eagle/ScienceRuns/Planck1/L0100N1504/PE/REFERENCE/data'
         self.agn_directory = '/cosma7/data/Eagle/ScienceRuns/Planck1/L0050N0752/PE/S15_AGNdT9/data'
 
@@ -63,7 +65,9 @@ class flares:
             self.tags = np.array(['002_z009p993','003_z008p988',
                                   '004_z008p075','005_z007p050','006_z005p971',
                                   '008_z005p037'])
+
             self.zeds = [float(tag[5:].replace('p','.')) for tag in self.tags]
+
         else:
             raise ValueError("sim_type not recognised")
 
@@ -78,13 +82,13 @@ class flares:
 
 
     def print_attributes(self,obj):
-        with h5py.File(self.fname,'r') as f: 
+        with h5py.File(self.fname,'r') as f:
             _attrs = list(f[obj].attrs.keys())
             if len(_attrs) < 1:
                 print("No attributes.")
             else:
                 for key in _attrs:
-                    print("%s:"%key, f[obj].attrs[key])     
+                    print("%s:"%key, f[obj].attrs[key])
 
 
     # @jit
@@ -120,13 +124,13 @@ class flares:
         return centre, radius, mindist
 
 
-    def calc_df(self, mstar, tag, volume, massBinLimits):
+    def calc_df(self, mstar, volume, massBinLimits):
 
         hist, dummy = np.histogram(np.log10(mstar), bins = massBinLimits)
         hist = np.float64(hist)
         phi = (hist / volume) / (massBinLimits[1] - massBinLimits[0])
 
-        # p = 0.95 
+        # p = 0.95
         # phi_sigma = np.array([scipy.stats.chi2.ppf((1.-p)/2.,2*hist)/2.,
         #                       scipy.stats.chi2.ppf(p+(1.-p)/2.,2*(hist+1))/2.])
 
@@ -175,7 +179,7 @@ class flares:
 
 
         err_up, err_lo, mask = yerr(phi,phi_sigma)
-        
+
         # err_lo = np.log10(phi) - np.log10(phi - phi_sigma[0])
         # err_up = np.log10(phi) - np.log10(phi + phi_sigma[1])
 
@@ -191,10 +195,10 @@ class flares:
     Age of stellar particles
     """
 
-    def get_star_formation_time(self, SFT, redshift):
+    def get_star_formation_time(self, SFT):
 
         SFz = (1/SFT) - 1.
-        SFz = self.cosmo.age(redshift).value - self.cosmo.age(SFz).value
+        SFz = self.cosmo.age(SFz).value
         return SFz
 
     def get_age(self, arr, z, numThreads = 4):
@@ -206,10 +210,100 @@ class flares:
         else:
             pool = schwimmbad.MultiPool(processes=numThreads)
 
-        calc = partial(self.get_star_formation_time, redshift = z)
-        Age = np.array(list(pool.map(calc,arr)))
+        Age = self.cosmo.age(z).value - np.array(list(pool.map(self.get_star_formation_time,arr)))
+        pool.close()
 
         return Age
+
+
+    def print_graph_keys(self, halo, tag):
+        _fname = f"{self.graph_directory}/GEAGLE_{halo}/SubMgraph_{tag}.hdf5"
+
+        with h5py.File(_fname,'r') as f:
+            print(list(f.keys()))
+
+
+    def get_progenitors(self, GroupNumber, SubGroupNumber, halo, tag,
+                        properties=['prog_group_ids','prog_subgroup_ids']):
+        """
+        Convenience function for getting progenitor trees
+        """
+
+        for _prop in properties:
+            if _prop[:4] != 'prog': 
+                raise ValueError('requested property, %s, not of "progenitor" type'%_prop)
+
+        return self.get_graph_properties(GroupNumber, SubGroupNumber, halo, tag, 
+                                         properties, tree_type='prog')
+    
+        
+    def get_descendants(self, GroupNumber, SubGroupNumber, halo, tag,
+                        properties=['desc_group_ids','desc_subgroup_ids']):
+        """
+        Convenience function for getting descendant trees
+        """
+
+        for _prop in properties:
+            if _prop[:4] != 'desc': 
+                raise ValueError('requested property, %s, not of "descendant" type'%_prop)
+
+        return self.get_graph_properties(GroupNumber, SubGroupNumber, halo, tag, 
+                                         properties, tree_type='desc')
+
+
+    def get_graph_properties(self, GroupNumber, SubGroupNumber, halo, tag, 
+                        properties=['prog_group_ids','prog_subgroup_ids'],
+                        tree_type='prog'):
+        """
+        Method for getting graph properties of a given (sub)halo
+        """
+        
+        _fname = f"{self.graph_directory}/GEAGLE_{halo}/SubMgraph_{tag}.hdf5"
+        
+        with h5py.File(_fname,'r') as f:
+
+            _grp = f['SUBFIND_Group_IDs'][:]
+            _sgrp = f['SUBFIND_SubGroup_IDs'][:]
+           
+            # find index of halo in graph arrays
+            _idx = np.where((_grp == GroupNumber) &\
+                            (_sgrp == SubGroupNumber))
+
+            if tree_type == 'prog':
+                sindex = 'Prog_Start_Index'
+                nstr = 'nProgs'
+            elif tree_type == 'desc':
+                sindex = 'Desc_Start_Index'
+                nstr = 'nDescs'
+            else:
+                raise ValueError('tree type not recognised')
+
+
+            # get all progenitors
+            output = {_prop: None for _prop in properties}
+            for _prop in properties:
+                output[_prop] = self.get_link_data(f[_prop][:], 
+                                                   f[sindex][:][_idx][0], 
+                                                   f[nstr][:][_idx][0])
+
+        return output
+
+
+    def get_link_data(self, all_linked_halos, start_ind, nlinked_halos):
+        """ A helper function for extracting a halo's linked halos
+            (i.e. progenitors and descendants)
+        :param all_linked_halos: Array containing all progenitors and descendants.
+        :type all_linked_halos: float[N_linked halos]
+        :param start_ind: The start index for this halos progenitors or descendents
+                          elements in all_linked_halos
+        :type start_ind: int
+        :param nlinked_halos: The number of progenitors or descendents (linked halos)
+                              the halo in question has
+        :type nlinked_halos: int
+        :return:
+        """
+
+        return all_linked_halos[start_ind: start_ind + nlinked_halos]
 
 
 
@@ -286,7 +380,7 @@ class flares:
 
 
     def load_dataset(self,name,arr_type='Galaxy'):
-        """ 
+        """
         Load a dataset for *all* halos and tags
         """
 
@@ -349,32 +443,34 @@ class flares:
             #dset.close()
 
 
-    def get_particles(self, p_str='S_Age',halo='00',tag='005_z010p000', verbose=False):
+    def get_particles(self, p_str, length_array, halo='00',tag='005_z010p000', verbose=False):
         """
-        Grab particle properties for the given halo/tag and the given datasets 
+        Grab particle properties for the given halo/tag and the given datasets
 
         Args:
             p_str (str or list) particle dataset string, or a list / tuple of these strings
+            length_array (array or list) lengths of particle arrays
             halo (str)
             tag (str)
             verbose (bool)
 
         Returns:
-            out (dict)  
+            out (dict)
         """
         if verbose: print("Getting particle array lengths...")
         # get particle array lengths for each galaxy
-        S_length = self.load_dataset('S_Length',arr_type='Galaxy')
+        # S_length = self.load_dataset('S_Length',arr_type='Galaxy')
         # subset halo/tag
-        S_len = S_length[halo][tag]
-    
+        # S_len = S_length[halo][tag]
+        S_len = length_array
+
         if verbose: print("Finding array indices...")
         # find beginning:end indexes for each galaxy
         begin = np.zeros(len(S_len), dtype = np.int64)
         end = np.zeros(len(S_len), dtype = np.int64)
         begin[1:] = np.cumsum(S_len)[:-1]
         end = np.cumsum(S_len)
-    
+
         if verbose: print("Getting particle data...")
         _p = {}
         if type(p_str) in [list,tuple]:
@@ -382,22 +478,22 @@ class flares:
                 _p[_str] = self._load_single_dataset(_str,halo,tag,arr_type='Particle')
         else:
             _p[p_str] = self._load_single_dataset(p_str,halo,tag,arr_type='Particle')
-    
-    
+
+
         if verbose: print("Subsetting particles for each galaxy...")
         # output dictionary of particle properties
         out = {}
         for i in np.arange(len(S_len)): # loop through gals
             out[i] = {}
-    
+
             # if more than one property, loop through them
             if type(p_str) in [list,tuple]:
                 for _str in p_str:
                     out[i][_str] = _p[_str][begin[i]:end[i]]
             else:
                 out[i][p_str] = _p[p_str][begin[i]:end[i]]
-    
-    
+
+
         return out
 
 
@@ -598,51 +694,6 @@ class flares:
         return parts_in_group
 
 
-@jit()
-def get_Z_LOS(s_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
-
-    """
-
-    Compute the los metal surface density (in g/cm^2) for star particles inside the galaxy taking
-    the z-axis as the los.
-    Args:
-        s_cood (3d array): stellar particle coordinates
-        g_cood (3d array): gas particle coordinates
-        g_mass (1d array): gas particle mass
-        g_Z (1d array): gas particle metallicity
-        g_sml (1d array): gas particle smoothing length
-
-    """
-    n = len(s_cood)
-    Z_los_SD = np.zeros(n)
-    #Fixing the observer direction as z-axis. Use make_faceon() for changing the
-    #particle orientation to face-on
-    xdir, ydir, zdir = 0, 1, 2
-    for ii in range(n):
-
-        thisspos = s_cood[ii]
-        ok = (g_cood[:,zdir] > thisspos[zdir])
-        thisgpos = g_cood[ok]
-        thisgsml = g_sml[ok]
-        thisgZ = g_Z[ok]
-        thisgmass = g_mass[ok]
-        x = thisgpos[:,xdir] - thisspos[xdir]
-        y = thisgpos[:,ydir] - thisspos[ydir]
-
-        b = np.sqrt(x*x + y*y)
-        boverh = b/thisgsml
-
-        ok = (boverh <= 1.)
-
-        kernel_vals = np.array([lkernel[int(kbins*ll)] for ll in boverh[ok]])
-
-        Z_los_SD[ii] = np.sum((thisgmass[ok]*thisgZ[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals) #in units of Msun/Mpc^2
-
-    Z_los_SD*=conv #in units of Msun/pc^2
-
-    return Z_los_SD
-
-
 def get_recent_SFR(tag, t = 100, inp = 'FLARES'):
 
     #t is time in Myr
@@ -671,7 +722,7 @@ def get_recent_SFR(tag, t = 100, inp = 'FLARES'):
         with h5py.File(sim, 'r') as hf:
 
             S_len = np.array(hf[F'{tag}/Galaxy'].get('S_Length'), dtype = np.int64)
-            S_mass = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)
+            S_mass = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)*1e10
             S_age = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64)*1e3 #Age is in Gyr,
                                                                          #so converting the array to Myr
 
