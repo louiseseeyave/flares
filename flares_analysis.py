@@ -181,6 +181,80 @@ def simple_wcbar(D, x, y, z, s = None, labels = labels, limits = limits,  cmap =
 
 
 
+def simple_wcbar_whist(D, x, y, z, s = None, labels = labels, limits = limits,  cmap = cm.viridis, add_weighted_median = True):
+
+    #
+    # # --- if no selection provided select all galaxies
+    # if not s:
+    #     s = D[x] == D[x]
+
+    # --- if no limits provided base limits on selected data ranges
+    for v in [x, y, z]:
+        if v not in limits.keys():
+            limits[v] = [np.min(D[v][s]), np.max(D[v][s])]
+
+    # --- if no labels provided just use the name
+    for v in [x, y, z]:
+        if v not in labels.keys():
+            labels[v] = v
+
+
+    # --- get template figure from flare.plt
+    fig, ax, cax, hax = fplt.simple_wcbar_whist()
+
+    # --- define colour scale
+    norm = mpl.colors.Normalize(vmin=limits[z][0], vmax=limits[z][1])
+
+
+    # --- plot
+    ax.scatter(D[x][s],D[y][s], s=1, alpha=0.5, c = cmap(norm(D[z][s])))
+
+
+    # --- add histogram
+    bins = np.linspace(*limits[y], 20)
+    bincen = (bins[:-1]+bins[1:])/2.
+    H, bin_edges = np.histogram(D[y][s], bins = bins, range = limits[x], density = True)
+    Hw, bin_edges = np.histogram(D[y][s], bins = bins, range = limits[x], weights = D['weight'][s], density = True)
+
+    hax.plot(H, bincen, c='k', ls = ':', lw=1)
+    hax.plot(Hw, bincen, c='k', ls = '-', lw=1)
+    hax.set_xticks([])
+    hax.set_yticks([])
+
+    # ax.fill_between(bincen[Ns], out[:,0][Ns], out[:,2][Ns], color='k', alpha = 0.2)
+
+
+
+    # --- weighted median Lines
+
+    if add_weighted_median:
+        bins = np.linspace(*limits[x], 20)
+        bincen = (bins[:-1]+bins[1:])/2.
+        out = flares.binned_weighted_quantile(D[x][s],D[y][s], D['weight'][s],bins,[0.84,0.50,0.16])
+
+        ax.plot(bincen, out[:,1], c='k', ls = '-')
+        # ax.fill_between(bincen[Ns], out[:,0][Ns], out[:,2][Ns], color='k', alpha = 0.2)
+
+
+    ax.set_xlim(limits[x])
+    ax.set_ylim(limits[y])
+
+    ax.set_ylabel(rf'$\rm {labels[y]}$', fontsize = 9)
+    ax.set_xlabel(rf'$\rm {labels[x]}$', fontsize = 9)
+
+
+    # --- add colourbar
+
+    cmapper = cm.ScalarMappable(norm=norm, cmap=cmap)
+    cmapper.set_array([])
+    cbar = fig.colorbar(cmapper, cax=cax, orientation='vertical')
+    cbar.set_label(rf'$\rm {labels[z]} $')
+
+    return fig, ax, cax, hax
+
+
+
+
 
 
 def simple(D, x, y, s = None, labels = labels, limits = limits, add_weighted_median = True):
