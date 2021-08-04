@@ -7,6 +7,7 @@ A python convenience module for working with FLARES data.
 - numpy
 - h5py
 - scipy 
+- [numba](https://numba.readthedocs.io/en/stable/user/installing.html)
 - schwimmbad
 - [eagle_IO](https://github.com/flaresimulations/eagle_IO)
 - [SynthObs](https://github.com/stephenmwilkins/SynthObs) 
