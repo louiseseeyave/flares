@@ -26,7 +26,7 @@ in any other scripts to get the flares class and associated functionality.
 
 ## Set up and data location
 
-The FLARES data on COSMA are located here:
+The original FLARES data on COSMA are located here:
 
     /cosma7/data/dp004/FLARES/FLARES-1
 
@@ -35,17 +35,21 @@ You may need to update this location in `flares.py#L29` by changing the `self.di
 
 ## Tutorial
 
-`flares.py` contains the `flares` class, which contains a lot of useful functionality for analysing the resims. 
-The most important information is the specified halos (`flares.halos`) and snapshots (`flares.tags`) you wish to analyse; these should be updated as new resims are completed.
+`flares.py` contains the `flares` class, which contains a lot of useful functionality for analysing the resims, such as the specified halos (`flares.halos`) and snapshots (`flares.tags`) you wish to analyse; these should be updated as new resims are completed.
 
-`download_methods.py` fetches the specified arrays from all resims and puts them in a single hdf5 file in the `data/` folder. 
-Simply update these scripts with the data you wish to download, specify if you wish to `overwrite` any existing data. 
-Run this script using one of the following batchscripts, `download_particles.cosma.sh` for getting the particle data and run `download_subfind.py` for just the subfind data.
-If you wish to generate photometry for all galaxies you will need to run `create_UVgrid.cosma.sh` to get the value of kappa, and use `download_phot.cosma.sh` to extract the photometry information. 
+In order to make working with the data easier we typically download a subset of subhalo and particle arrays to a 'master' HDF5 file. 
+This can then be used in place of the raw simulation outputs.
+It also typically includes other derived properties, such as stellar masses and SFRs within apertures, and forward modelled predictions for emission.
+Most user will typically use a master file that has already been created (please speak to one of the team to get access), however for reference below we specify how to create a master file from scratch.
+Each bash submission script may require modifying for your particular architecture and python environment.
+
+- First we download the particle properties, handled in `run_download_particles.cosma.sh`
+- We can then download subhalo properties, handled in `run_download_properties.cosma.sh`.  The required arrays can be defined in `req_arrays.txt`
+- If you wish to calculate emission from subhalos, you first need to calculate the line of sigh metal column density, handled in `run_calc_Zlos.cosma.sh`
+- You can then run `run_photometry.cosma.sh` to generate predicted emission. Within this script you can select whether you require fluxes, luminosities, full SEDs or just line information.
+- Finally, the outputs from each region can be combined using `combine_master_file.py` 
 
 Once this has completed you will have a single file `data/flares.hdf5` with the following (rough) data structure: `Resim_num/Property_type/Property`, where `Resim_num` is the number of resims (see [here](https://docs.google.com/spreadsheets/d/1NzQee05rNCml1YEKXuD8L9JOW5Noh8oj9K9bcS2RQlY/edit?usp=sharing)), `Property_type` can be either Galaxy (like stellar mass, sfr, etc) or Particle (individual properties of gas/stellar particles) and `Property` is the required property. 
-
-
 
 ### Example
 

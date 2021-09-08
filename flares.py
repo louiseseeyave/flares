@@ -1,20 +1,21 @@
 import os
+from functools import partial
 
 import numpy as np
+from numba import jit, njit, float64, int32, prange
+import h5py
 from astropy.cosmology import Planck13 as cosmo
 from astropy import units as u
 from scipy.optimize import curve_fit
 from scipy.spatial import ConvexHull
-import scipy.stats
-import h5py
+from scipy.spatial.distance import cdist
+# import scipy.stats
 import schwimmbad
-from functools import partial
+
 import eagle_IO.eagle_IO as E
-from numba import jit, njit, float64, int32, prange
 
-norm = np.linalg.norm
-conv = (u.solMass/u.Mpc**2).to(u.solMass/u.pc**2)
-
+# norm = np.linalg.norm
+# conv = (u.solMass/u.Mpc**2).to(u.solMass/u.pc**2)
 
 
 class flares:
@@ -379,7 +380,7 @@ class flares:
             # sys.exit
 
 
-    def load_dataset(self,name,arr_type='Galaxy'):
+    def load_dataset(self,name,arr_type='Galaxy',verbose=False):
         """
         Load a dataset for *all* halos and tags
         """
@@ -390,13 +391,17 @@ class flares:
             with h5py.File(self.fname,'r') as f:
                 for halo in self.halos:
                     for tag in self.tags:
-                        out[halo][tag] = f['%s/%s/%s/%s'%(halo,tag,arr_type,name)][:]
+                        if verbose: print(halo,tag)
+                        try:
+                            out[halo][tag] = f['%s/%s/%s/%s'%(halo,tag,arr_type,name)][:]
+                        except KeyError:
+                            out[halo][tag] = []
         elif self.sim_type == "PERIODIC":
             out = {tag: None for tag in self.tags}
 
             with h5py.File(self.fname,'r') as f:
                 for tag in self.tags:
-                    print('%s/%s/%s'%(tag,arr_type,name))
+                    if verbose: print('%s/%s/%s'%(tag,arr_type,name))
                     out[tag] = f['%s/%s/%s'%(tag,arr_type,name)][:]
 
         return out
@@ -694,59 +699,7 @@ class flares:
         return parts_in_group
 
 
-def get_recent_SFR(tag, t = 100, inp = 'FLARES'):
 
-    #t is time in Myr
-    #SFR in Msun/yr
-
-    if inp == 'FLARES':
-        sim_type = inp
-        n = 40
-
-    elif (inp == 'REF') or (inp == 'AGNdT9'):
-        sim = F"./data/EAGLE_{inp}_sp_info.hdf5"
-        sim_type = 'PERIODIC'
-        n = 1
-
-    else:
-        ValueError(F"No input option of {inp}")
-
-
-    for ii in range(n):
-        if inp == 'FLARES':
-            num = str(ii)
-            if len(num) == 1:
-                num =  '0'+num
-            sim = F"./data/FLARES_{num}_sp_info.hdf5"
-
-        with h5py.File(sim, 'r') as hf:
-
-            S_len = np.array(hf[F'{tag}/Galaxy'].get('S_Length'), dtype = np.int64)
-            S_mass = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)*1e10
-            S_age = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64)*1e3 #Age is in Gyr,
-                                                                         #so converting the array to Myr
-
-        begin = np.zeros(len(S_len), dtype = np.int64)
-        end = np.zeros(len(S_len), dtype = np.int64)
-        begin[1:] = np.cumsum(S_len)[:-1]
-        end = np.cumsum(S_len)
-
-        SFR = np.zeros(len(begin))
-
-        for jj, kk in enumerate(begin):
-
-            this_age = S_age[begin[jj]:end[jj]]
-            this_mass = S_mass[begin[jj]:end[jj]]
-            ok = np.where(this_age <= t)[0]
-            if len(ok) > 0:
-
-                SFR[jj] = np.sum(this_mass[ok])/(t*1e6)
-
-        fl = flares(sim, sim_type)
-        fl.create_dataset(SFR, F"{tag}/Galaxy/SFR/SFR_{t}",
-        desc = F"SFR of the galaxy averaged over the last {t}Myr", unit = "Msun/yr")
-
-    print (F"Saved the SFR averaged over {t}Myr with tag {tag} for {inp} to file")
 
 
 #Weighted quantiles

@@ -9,11 +9,9 @@ import schwimmbad
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 import flares
-import SynthObs
-from SynthObs.SED import models
-from flares import get_recent_SFR
+from synthobs.sed import models
 from phot_modules import get_lum, get_flux, get_lines, get_SED
-import FLARE.filters
+import flare.filters
 
 
 def get_simtype(inp):
@@ -26,7 +24,7 @@ def get_simtype(inp):
 
     return sim_type
 
-def lum_write_out(num, tag, kappa, BC_fac, filters = FLARE.filters.TH[:-1], inp = 'FLARES', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def lum_write_out(num, tag, kappa, BC_fac, filters = flare.filters.TH[:-1], inp = 'FLARES', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
 
 
     if inp == 'FLARES':
@@ -79,7 +77,7 @@ def lum_write_out(num, tag, kappa, BC_fac, filters = FLARE.filters.TH[:-1], inp 
         desc = F"Dust corrected luminosity (using ModelI) of the galaxy in the {filter} band with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "ergs/s/Hz")
 
 
-def flux_write_out(num, tag, kappa, BC_fac, filters = FLARE.filters.ACS, inp = 'FLARES', extinction = 'default', data_folder = 'data'):
+def flux_write_out(num, tag, kappa, BC_fac, filters = flare.filters.ACS, inp = 'FLARES', extinction = 'default', data_folder = 'data'):
 
     if inp == 'FLARES':
         num = str(num)
@@ -266,7 +264,9 @@ if __name__ == "__main__":
 
     elif prop == 'Flux':
         print ("Calculating fluxes")
-        flux_write_out(num=num, tag = tag, kappa = kappa, BC_fac = BC_fac, filters = FLARE.filters.ACS+FLARE.filters.WFC3NIR_W+FLARE.filters.IRAC+FLARE.filters.Euclid+FLARE.filters.Subaru+FLARE.filters.NIRCam, inp = inp, data_folder = data_folder)
+        flux_write_out(num=num, tag = tag, kappa = kappa, BC_fac = BC_fac, 
+                       filters = flare.filters.ACS + flare.filters.WFC3NIR_W + flare.filters.IRAC + flare.filters.Euclid + flare.filters.Subaru + flare.filters.NIRCam + flare.filters.MIRI, 
+                       inp = inp, data_folder = data_folder)
 
     elif prop == 'Lines':
         print ("Calculating line luminosities and EW")

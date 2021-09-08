@@ -1,20 +1,25 @@
-#!/bin/bash
+#!/bin/bash --login
 #SBATCH -A dp004
 #SBATCH -p cosma7
-#SBATCH --job-name=phot_write
+#SBATCH --job-name=phot_write_FLARES
 #SBATCH -t 0-08:00
-#SBATCH --array=0-39%10
+#SBATCH --array=1-39
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task=1
 ###SBATCH --ntasks-per-node=1
-#SBATCH -o logs/std_output.%J
-#SBATCH -e logs/std_error.%J
+#SBATCH -o logs/std_phot_output.%J
+#SBATCH -e logs/std_phot_error.%J
 
 
 module purge
-module load python/3.6.5 gnu_comp/7.3.0 openmpi/3.0.1 hdf5/1.10.3
+# module load python/3.6.5 gnu_comp/7.3.0 openmpi/3.0.1 hdf5/1.10.3
+module load gnu_comp/10.2.0 openmpi/4.1.1 hdf5/1.10.6 pythonconda3/2020-02
 
-source ./venv_fl/bin/activate
+output_folder="data"
+
+## load your environment (must contain the eagle_IO module)
+# source ./venv_fl/bin/activate
+conda activate eagle3p9
 
 ## Change the argument to the script to Luminosity or Flux; FLARES or REF or AGNdT9
 ## as required
@@ -26,9 +31,9 @@ array=(011_z004p770 010_z005p000 009_z006p000 008_z007p000 007_z008p000 006_z009
 for ii in ${array[@]}
   do
     python3 download_photproperties.py $SLURM_ARRAY_TASK_ID $ii FLARES Luminosity data
-    python3 download_photproperties.py $SLURM_ARRAY_TASK_ID $ii FLARES SED data
-    python3 download_photproperties.py $SLURM_ARRAY_TASK_ID $ii FLARES Lines data
     python3 download_photproperties.py $SLURM_ARRAY_TASK_ID $ii FLARES Flux data
+    # python3 download_photproperties.py $SLURM_ARRAY_TASK_ID $ii FLARES SED data
+    # python3 download_photproperties.py $SLURM_ARRAY_TASK_ID $ii FLARES Lines data
 done
 
 

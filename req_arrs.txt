@@ -19,6 +19,7 @@ S_Age,/PartType4/StellarFormationTime,float64,Gyr,Star particle age
 G_ID,/PartType0/ParticleIDs,int64,No units,Gas particle ID
 G_Coordinates,/PartType0/Coordinates,float64,cMpc,Gas particle coordinates
 G_Mass,/PartType0/Mass,float64,1E10 Msun,Gas particle masses
+G_SFR,/PartType0/StarFormationRate,float64,Msun/yr,Gas particle star formation rate
 G_Vel,/PartType0/Velocity,float64,km/s,Gas particle peculiar velocity
 G_Z,/PartType0/Metallicity,float64,No units,Gas particle metallicity
 G_Z_smooth,/PartType0/SmoothedMetallicity,float64,No units,Gas particle smoothed metallicity

@@ -133,6 +133,11 @@ if __name__ == "__main__":
 
     print (tag, rank)
     S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len = get_data(num, tag, inp = inp, data_folder=data_folder)
+
+    if len(S_len) == 0:
+        print("No subhalos... exiting.")
+        sys.exit()
+
     z = float(tag[5:].replace('p','.'))
     S_coords=S_coords.T/(1+z)
     G_coords=G_coords.T/(1+z)
@@ -172,7 +177,8 @@ if __name__ == "__main__":
 
     start = timeit.default_timer()
     calc_Zlos = partial(get_ZLOS, S_coords=S_coords, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, sbegin=sbegin, send=send, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins)
-    pool = schwimmbad.MultiPool(processes=4)
+    # pool = schwimmbad.MultiPool(processes=1)
+    pool = schwimmbad.SerialPool()
     tZlos = np.concatenate(np.array(list(pool.map(calc_Zlos, np.arange(0,len(sbegin), dtype=np.int64)))))
     pool.close()
     stop = timeit.default_timer()

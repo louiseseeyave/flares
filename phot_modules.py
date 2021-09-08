@@ -14,12 +14,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname("__file__"), '..
 from functools import partial
 import schwimmbad
 
-import SynthObs
-from SynthObs.SED import models
+import synthobs
+from synthobs.sed import models
 
-import FLARE
-import FLARE.filters
-from FLARE.photom import lum_to_M, M_to_lum
+import flare
+import flare.filters
+from flare.photom import lum_to_M, M_to_lum
 
 import h5py
 
@@ -104,7 +104,7 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
     z = float(tag[5:].replace('p','.'))
 
     # --- create rest-frame luminosities
-    F = FLARE.filters.add_filters(filters, new_lam = model.lam)
+    F = flare.filters.add_filters(filters, new_lam = model.lam)
     model.create_Lnu_grid(F) # --- create new L grid for each filter. In units of erg/s/Hz
 
 
@@ -151,7 +151,7 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
 
 
 
-def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters = FLARE.filters.NIRCam_W, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters = flare.filters.NIRCam_W, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
 
     S_mass, S_Z, S_age, S_los, G_Z, S_len, G_len, begin, end, gbegin, gend = get_data(sim, tag, inp, data_folder)
 
@@ -179,9 +179,9 @@ def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters 
     else: ValueError("Extinction type not recognised")
 
     z = float(tag[5:].replace('p','.'))
-    F = FLARE.filters.add_filters(filters, new_lam = model.lam * (1. + z))
+    F = flare.filters.add_filters(filters, new_lam = model.lam * (1. + z))
 
-    cosmo = FLARE.default_cosmo()
+    cosmo = flare.default_cosmo()
 
     model.create_Fnu_grid(F, z, cosmo) # --- create new Fnu grid for each filter. In units of nJy/M_sol
 
@@ -407,7 +407,7 @@ def get_lum_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, 
         return out
 
 
-def get_flux(sim, kappa, tag, BC_fac,  IMF = 'Chabrier_300', inp = 'FLARES', filters = FLARE.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def get_flux(sim, kappa, tag, BC_fac,  IMF = 'Chabrier_300', inp = 'FLARES', filters = flare.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
 
     try:
         Fnus = flux(sim, kappa, tag, BC_fac = BC_fac, IMF=IMF, inp=inp, filters=filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder)
@@ -418,7 +418,7 @@ def get_flux(sim, kappa, tag, BC_fac,  IMF = 'Chabrier_300', inp = 'FLARES', fil
 
     return Fnus
 
-def get_flux_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', inp = 'FLARES', filters = FLARE.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def get_flux_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', inp = 'FLARES', filters = flare.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
 
     print (f"Getting fluxes for tag {tag} with kappa = {kappa}")
 
