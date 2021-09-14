@@ -4,7 +4,7 @@
 #SBATCH -p cosma7
 #SBATCH --job-name=calc_Zlos_FLARES
 #SBATCH --array=1-39
-#SBATCH -t 0-1:30
+#SBATCH -t 0-2:30
 ###SBATCH --cpus-per-task=1
 #SBATCH --ntasks-per-node=8
 #SBATCH -o logs/std_Zlos_output.%J

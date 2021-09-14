@@ -13,7 +13,7 @@ import flares
 conv = (u.solMass/u.Mpc**2).to(u.solMass/u.pc**2)
 
 
-@njit(float64[:](float64[:,:], float64[:,:], float64[:], float64[:], float64[:], float64[:], int32), parallel=True, nogil=True)
+@njit(float64[:](float64[:,:], float64[:,:], float64[:], float64[:], float64[:], float64[:], int32), fastmath=True)#, parallel=True, nogil=True)
 def get_Z_LOS(s_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
 
     """
@@ -213,4 +213,4 @@ if __name__ == "__main__":
         fl = flares.flares(fname = filename,sim_type = sim_type)
 
         fl.create_dataset(Zlos, 'S_los', '{}/Particle'.format(tag),
-            desc = 'Star particle line-of-sight metal column density along the z-axis', unit = 'Msun/pc^2', overwrite=False)
+            desc = 'Star particle line-of-sight metal column density along the z-axis', unit = 'Msun/pc^2', overwrite=True)

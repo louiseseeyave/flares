@@ -3,7 +3,7 @@
 #SBATCH -p cosma7
 #SBATCH --job-name=phot_write_FLARES
 #SBATCH -t 0-08:00
-#SBATCH --array=1-39
+#SBATCH --array=0-39
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task=1
 ###SBATCH --ntasks-per-node=1

@@ -62,19 +62,20 @@ def lum_write_out(num, tag, kappa, BC_fac, filters = flare.filters.TH[:-1], inp 
 
         fl.create_dataset(values = lumintr[:,ii], name = F"{filter}",
         group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Luminosity/Intrinsic",
-        desc = F'Intrinsic (stellar + nebular) luminosity of the galaxy in the {filter} band', unit = "ergs/s/Hz")
+        desc = F'Intrinsic (stellar + nebular) luminosity of the galaxy in the {filter} band', unit = "ergs/s/Hz", overwrite=True)
 
         fl.create_dataset(values = lumstell[:,ii], name = F"{filter}",
         group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Luminosity/Pure_Stellar",
-        desc = F'Stellar luminosity of the galaxy in the {filter} band', unit = "ergs/s/Hz")
+        desc = F'Stellar luminosity of the galaxy in the {filter} band', unit = "ergs/s/Hz", overwrite=True)
 
         fl.create_dataset(values = lumBC[:,ii], name = F"{filter}",
         group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Luminosity/No_ISM",
-        desc = F'Intrinsic (stellar + nebular) luminosity of the galaxy with BC attenuation in the {filter} band with a birth cloud factor of {BC_fac} following {extinction} curve', unit = "ergs/s/Hz")
+        desc = F'Intrinsic (stellar + nebular) luminosity of the galaxy with BC attenuation in the {filter} band with a birth cloud factor of {BC_fac} following {extinction} curve', 
+        unit = "ergs/s/Hz", overwrite=True)
 
         fl.create_dataset(values = lumatt[:,ii], name = F"{filter}",
         group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Luminosity/DustModelI",
-        desc = F"Dust corrected luminosity (using ModelI) of the galaxy in the {filter} band with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "ergs/s/Hz")
+        desc = F"Dust corrected luminosity (using ModelI) of the galaxy in the {filter} band with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "ergs/s/Hz", overwrite=True)
 
 
 def flux_write_out(num, tag, kappa, BC_fac, filters = flare.filters.ACS, inp = 'FLARES', extinction = 'default', data_folder = 'data'):
@@ -112,19 +113,19 @@ def flux_write_out(num, tag, kappa, BC_fac, filters = flare.filters.ACS, inp = '
 
         fl.create_dataset(values = fluxintr[:,ii], name = F"{filter[0]}/{filter[1]}/{filter[2]}",
         group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Flux/Intrinsic",
-        desc = F"Intrinsic (stellar + nebular) flux of the galaxy in the {filter}", unit = "nJy")
+        desc = F"Intrinsic (stellar + nebular) flux of the galaxy in the {filter}", unit = "nJy", overwrite=True)
 
         fl.create_dataset(values = fluxstell[:,ii], name = F"{filter[0]}/{filter[1]}/{filter[2]}",
         group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Flux/Pure_Stellar",
-        desc = F"Stellar flux of the galaxy in the {filter}", unit = "nJy")
+        desc = F"Stellar flux of the galaxy in the {filter}", unit = "nJy", overwrite=True)
 
         fl.create_dataset(values = fluxBC[:,ii], name = F"{filter[0]}/{filter[1]}/{filter[2]}",
         group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Flux/No_ISM",
-        desc = F"Intrinsic (stellar + nebular) flux of the galaxy with BC attenuation in the {filter} with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "nJy")
+        desc = F"Intrinsic (stellar + nebular) flux of the galaxy with BC attenuation in the {filter} with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "nJy", overwrite=True)
 
         fl.create_dataset(values = fluxatt[:,ii], name = F"{filter[0]}/{filter[1]}/{filter[2]}",
         group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Flux/DustModelI",
-        desc = F"Dust corrected flux (using ModelI) of the galaxy in the {filter} with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "nJy")
+        desc = F"Dust corrected flux (using ModelI) of the galaxy in the {filter} with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "nJy", overwrite=True)
 
 
 def line_write_out(num, lines, tag, kappa, BC_fac, label, inp = 'FLARES', LF = False, log10t_BC = 7., Type = 'Total', extinction = 'default', data_folder = 'data'):
@@ -162,10 +163,11 @@ def line_write_out(num, lines, tag, kappa, BC_fac, label, inp = 'FLARES', LF = F
             print (F'{line} is being written to disk')
             fl.create_dataset(values = out_lum, name = F"{line}/Luminosity",
             group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Lines/DustModelI",
-            desc = F"Dust corrected luminosity (using ModelI) of the galaxy with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "ergs/s")
+            desc = F"Dust corrected luminosity (using ModelI) of the galaxy with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "ergs/s", overwrite=True)
+
             fl.create_dataset(values = out_EW, name = F"{line}/EW",
             group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Lines/DustModelI",
-            desc = F"EW (using ModelI) of the galaxy with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "Angstrom")
+            desc = F"EW (using ModelI) of the galaxy with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "Angstrom", overwrite=True)
 
         elif Type=='Intrinsic':
             fl = flares.flares(fname = filename, sim_type = sim_type)
@@ -173,10 +175,11 @@ def line_write_out(num, lines, tag, kappa, BC_fac, label, inp = 'FLARES', LF = F
             print (F'{line} is being written to disk')
             fl.create_dataset(values = out_lum, name = F"{line}/Luminosity",
             group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Lines/{label}",
-            desc = F"Intrinsic line luminosity", unit = "ergs/s")
+            desc = F"Intrinsic line luminosity", unit = "ergs/s", overwrite=True)
+            
             fl.create_dataset(values = out_EW, name = F"{line}/EW",
             group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Lines/{label}",
-            desc = F"Intrinsic EW", unit = "Angstrom")
+            desc = F"Intrinsic EW", unit = "Angstrom", overwrite=True)
 
         elif Type=='Only-BC':
             fl = flares.flares(fname = filename, sim_type = sim_type)
@@ -184,10 +187,11 @@ def line_write_out(num, lines, tag, kappa, BC_fac, label, inp = 'FLARES', LF = F
             print (F'{line} is being written to disk')
             fl.create_dataset(values = out_lum, name = F"{line}/Luminosity",
             group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Lines/{label}",
-            desc = F"Intrinsic line luminosity with birth cloud factor {BC_fac} following {extinction} curve", unit = "ergs/s")
+            desc = F"Intrinsic line luminosity with birth cloud factor {BC_fac} following {extinction} curve", unit = "ergs/s", overwrite=True)
+
             fl.create_dataset(values = out_EW, name = F"{line}/EW",
             group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Lines/{label}",
-            desc = F"Intrinsic EW with birth cloud factor {BC_fac} following {extinction} curve", unit = "Angstrom")
+            desc = F"Intrinsic EW with birth cloud factor {BC_fac} following {extinction} curve", unit = "Angstrom", overwrite=True)
 
 
 def sed_write_out(num, tag, kappa, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
@@ -216,23 +220,23 @@ def sed_write_out(num, tag, kappa, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300',
 
     fl.create_dataset(values = dat[0][0], name = F"Wavelength",
     group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/SED",
-    desc = F"Wavelength array for the SED", unit = "Angstrom")
+    desc = F"Wavelength array for the SED", unit = "Angstrom", overwrite=True)
 
     fl.create_dataset(values = dat[1], name = F"Pure_Stellar",
     group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/SED",
-    desc = F"Pure stellar SED", unit = "ergs/s/Hz")
+    desc = F"Pure stellar SED", unit = "ergs/s/Hz", overwrite=True)
 
     fl.create_dataset(values = dat[2], name = F"Intrinsic",
     group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/SED",
-    desc = F"Intrinisc SED", unit = "ergs/s/Hz")
+    desc = F"Intrinisc SED", unit = "ergs/s/Hz", overwrite=True)
 
     fl.create_dataset(values = dat[3], name = F"No_ISM",
     group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/SED",
-    desc = F"SED from attenuation only from the birth cloud component with kappa_BC={BC_fac} and {extinction} curve", unit = "ergs/s/Hz")
+    desc = F"SED from attenuation only from the birth cloud component with kappa_BC={BC_fac} and {extinction} curve", unit = "ergs/s/Hz", overwrite=True)
 
     fl.create_dataset(values = dat[4], name = F"DustModelI",
     group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/SED",
-    desc = F"SED from DustModelI with kappa_BC={BC_fac} and {extinction} curve", unit = "ergs/s/Hz")
+    desc = F"SED from DustModelI with kappa_BC={BC_fac} and {extinction} curve", unit = "ergs/s/Hz", overwrite=True)
 
 
 
