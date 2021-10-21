@@ -3,7 +3,7 @@
 #SBATCH -A dp004
 #SBATCH -p cosma7
 #SBATCH --job-name=get_FLARES
-#SBATCH --array=39
+#SBATCH --array=19
 #SBATCH -t 0-05:00
 #SBATCH --ntasks-per-node=8
 #SBATCH -o logs/std_output.%J
@@ -38,7 +38,6 @@ for ii in ${array[@]}
   do
     # mpiexec -n 16 python3 -m mpi4py download_methods.py $SLURM_ARRAY_TASK_ID $ii FLARES $output_folder
     mpiexec -n 16 python3 download_methods.py $SLURM_ARRAY_TASK_ID $ii FLARES $output_folder
-    # python3 write_req_arrs.py $SLURM_ARRAY_TASK_ID $ii FLARES $output_folder req_arrs.txt
 done
 
 # ### For PERIODIC boxes: REF and AGNdT9, change ntasks and time as required (REF at z=5 required ~1.hr)

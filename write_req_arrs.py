@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     ii, tag, inp, data_folder, inpfile = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
 
-
+    overwrite=True
     num = str(ii)
     tag = str(tag)
     inp = str(inp)
@@ -76,7 +76,7 @@ if __name__ == "__main__":
             elif 'PartType4' in path:
                 sel = sindex
             else:
-                nok = np.where(bh_mass==0)[0]
+                # nok = np.where(bh_mass==0)[0]
                 sel = bhindex
                 location = 'Galaxy'
         else:
@@ -89,31 +89,42 @@ if __name__ == "__main__":
 
         sel = np.asarray(sel, dtype=np.int64)
         try:
-            out = E.read_array(tmp, sim, tag, path, noH=True, physicalUnits=True, numThreads=nThreads)[sel]
+            out = E.read_array(tmp, sim, tag, path, noH=True, physicalUnits=True, numThreads=nThreads)
+            out = out[sel]
         except:
-            if 'coordinates' in path.lower():
-                out = np.zeros((len(indices),3))
-            elif 'velocity' in path.lower():
-                out = np.zeros((len(indices),3))
+            print("read_array failed")
+            if 'PartType' in path:
+                out = np.array([])
             else:
-                out = np.zeros(len(indices))
+                if 'coordinates' in path.lower():
+                    out = np.zeros((len(indices),3))
+                elif 'velocity' in path.lower():
+                    out = np.zeros((len(indices),3))
+                elif 'halfmassrad' in path.lower():
+                    out = np.zeros((len(indices),6))
+                else:
+                    out = np.zeros(len(indices))
 
 
         if 'age' in name.lower(): out = fl.get_age(out, z, nThreads)
-        if 'PartType5' in path:
-            if len(out.shape)>1:
-                out[nok] = [0.,0.,0.]
-            else:
-                out[nok] = 0.
+        # if 'PartType5' in path:
+        #     if len(out.shape)>1:
+        #         out[nok] = [0.,0.,0.]
+        #     else:
+        #         out[nok] = 0.
 
 
-        if 'coordinates' in path.lower(): out=out.T/a
+        if 'coordinates' in path.lower(): out = out.T/a
         if 'velocity' in path.lower(): out = out.T
+        # if 'halfmassrad' in path.lower(): out = out.T
 
 
         fl.create_dataset(out, name, '{}/{}'.format(tag, location),
-            desc = desc.encode('utf-8'), unit = unit.encode('utf-8'))
+                          desc = desc.encode('utf-8'), unit = unit.encode('utf-8'), 
+                          overwrite=overwrite)
 
         del out
 
     print (F'Completed writing required datasets from {inpfile}')
+
+

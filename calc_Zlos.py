@@ -124,19 +124,45 @@ if __name__ == "__main__":
     lkernel = kinp['kernel']
     header = kinp['header']
     kbins = header.item()['bins']
-
-
+    
     #For galaxies in region `num` and snap = tag
     num = str(ii)
     if len(num) == 1:
         num = '0'+num
 
+
+    if rank == 0:
+        if inp == 'FLARES':
+            if len(num) == 1:
+                num =  '0'+num
+            filename = './{}/FLARES_{}_sp_info.hdf5'.format(data_folder,num)
+            sim_type = 'FLARES'
+
+        elif inp == 'REF' or inp == 'AGNdT9':
+            filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
+            sim_type = 'PERIODIC'
+
+        fl = flares.flares(fname = filename,sim_type = sim_type)
+
+
     print (tag, rank)
     S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len = get_data(num, tag, inp = inp, data_folder=data_folder)
+
+    print(len(S_coords))
 
     if len(S_len) == 0:
         print("No subhalos... exiting.")
         sys.exit()
+
+    if len(S_coords) == 0:
+        if rank == 0:
+            print("No star particles, creating empty dataset")
+            fl.create_dataset([], 'S_los', '{}/Particle'.format(tag),
+                desc = 'Star particle line-of-sight metal column density along the z-axis', 
+                unit = 'Msun/pc^2', overwrite=True)
+            sys.exit()
+        else:
+            sys.exit()
 
     z = float(tag[5:].replace('p','.'))
     S_coords=S_coords.T/(1+z)
@@ -152,38 +178,49 @@ if __name__ == "__main__":
     else:
         thisok = total[rank*part:]
 
-    sbegin, send = get_len(S_len)
-    gbegin, gend = get_len(G_len)
+    if len(thisok) != 0:
 
-    S_coords = S_coords[sbegin[thisok[0]]:send[thisok[-1]]]
+        sbegin, send = get_len(S_len)
+        gbegin, gend = get_len(G_len)
 
-    G_coords = G_coords[gbegin[thisok[0]]:gend[thisok[-1]]]
-    G_mass = G_mass[gbegin[thisok[0]]:gend[thisok[-1]]]
-    G_Z = G_Z[gbegin[thisok[0]]:gend[thisok[-1]]]
-    G_sml = G_sml[gbegin[thisok[0]]:gend[thisok[-1]]]
+        print("calc shapes", sbegin.shape, send.shape, gbegin.shape, gend.shape, thisok.shape)
+    
+        S_coords = S_coords[sbegin[thisok[0]]:send[thisok[-1]]]
+    
+        G_coords = G_coords[gbegin[thisok[0]]:gend[thisok[-1]]]
+        G_mass = G_mass[gbegin[thisok[0]]:gend[thisok[-1]]]
+        G_Z = G_Z[gbegin[thisok[0]]:gend[thisok[-1]]]
+        G_sml = G_sml[gbegin[thisok[0]]:gend[thisok[-1]]]
+    
+        if rank!=size-1:
+            print (rank)
+            S_len = S_len[thisok[0]:thisok[-1]+1]
+            G_len = G_len[thisok[0]:thisok[-1]+1]
+        else:
+            S_len = S_len[thisok[0]:]
+            G_len = G_len[thisok[0]:]
+    
+    
+    
+        sbegin, send = get_len(S_len)
+        gbegin, gend = get_len(G_len)
+    
+        start = timeit.default_timer()
+        calc_Zlos = partial(get_ZLOS, S_coords=S_coords, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, sbegin=sbegin, send=send, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins)
+        # pool = schwimmbad.MultiPool(processes=1)
+        pool = schwimmbad.SerialPool()
+        tZlos = np.concatenate(np.array(list(pool.map(calc_Zlos, \
+                                 np.arange(0,len(sbegin), dtype=np.int64)))))
+        
+        pool.close()
+        stop = timeit.default_timer()
+        print (F"Took {np.round(stop - start, 6)} seconds for rank = {rank}")
 
-    if rank!=size-1:
-        print (rank)
-        S_len = S_len[thisok[0]:thisok[-1]+1]
-        G_len = G_len[thisok[0]:thisok[-1]+1]
+
     else:
-        S_len = S_len[thisok[0]:]
-        G_len = G_len[thisok[0]:]
+        tZlos = np.array([])
 
-
-
-    sbegin, send = get_len(S_len)
-    gbegin, gend = get_len(G_len)
-
-    start = timeit.default_timer()
-    calc_Zlos = partial(get_ZLOS, S_coords=S_coords, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, sbegin=sbegin, send=send, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins)
-    # pool = schwimmbad.MultiPool(processes=1)
-    pool = schwimmbad.SerialPool()
-    tZlos = np.concatenate(np.array(list(pool.map(calc_Zlos, np.arange(0,len(sbegin), dtype=np.int64)))))
-    pool.close()
-    stop = timeit.default_timer()
-    print (F"Took {np.round(stop - start, 6)} seconds for rank = {rank}")
-
+    print("Tzlos shape",tZlos.shape)
     comm.Barrier()
 
     if rank == 0:
@@ -194,23 +231,13 @@ if __name__ == "__main__":
 
     if rank == 0:
 
-        print ("Gathering completed")
+        print ("Gathering completed", len(Zlos))
 
         Zlos = np.concatenate(np.array(Zlos))
-        if inp == 'FLARES':
-            if len(num) == 1:
-                num =  '0'+num
-            filename = './{}/FLARES_{}_sp_info.hdf5'.format(data_folder,num)
-            sim_type = 'FLARES'
-
-
-        elif inp == 'REF' or inp == 'AGNdT9':
-            filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
-            sim_type = 'PERIODIC'
-
+        
+        print ("Gathering completed", len(Zlos))
         print(F"Wrting out line-of-sight metal density to {filename}")
 
-        fl = flares.flares(fname = filename,sim_type = sim_type)
-
         fl.create_dataset(Zlos, 'S_los', '{}/Particle'.format(tag),
-            desc = 'Star particle line-of-sight metal column density along the z-axis', unit = 'Msun/pc^2', overwrite=True)
+            desc = 'Star particle line-of-sight metal column density along the z-axis', 
+            unit = 'Msun/pc^2', overwrite=True)

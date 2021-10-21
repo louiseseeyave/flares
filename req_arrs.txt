@@ -1,4 +1,5 @@
 #Name,Path,Dtype,Units,Description
+HalfMassRad,/Subhalo/HalfMassRad,float64,cMpc,Half mass radius in all species
 M200,/FOF/Group_M_Crit200,float64,1E10 Msun,M200 of the group
 M500,/FOF/Group_M_Crit500,float64,1E10 Msun,M500 of the group
 M2500,/FOF/Group_M_Crit2500,float64,1E10 Msun,M2500 of the group

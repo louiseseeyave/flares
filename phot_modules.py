@@ -121,6 +121,7 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
 
         MetSurfaceDensities = DTM_fit(Z, Mage) * MetSurfaceDensities
 
+
         if Type == 'Total':
             tauVs_ISM = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
             tauVs_BC = BC_fac * (Metallicities/0.01)
@@ -143,6 +144,7 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
 
         else:
             ValueError(F"Undefined Type {Type}")
+
 
         Lnu = models.generate_Lnu(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, fesc = fesc, log10t_BC = log10t_BC) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
         Lums[jj] = list(Lnu.values())

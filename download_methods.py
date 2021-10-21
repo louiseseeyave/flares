@@ -504,7 +504,7 @@ def extract_info(num, tag, inp='FLARES'):
 ##End of function `extract_info`
 
 
-def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'Galaxy', inp='FLARES', data_folder = 'data/', verbose = False):
+def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'Galaxy', inp='FLARES', data_folder = 'data/', verbose = False, overwrite=False):
 
     if dtype is None:
         dtype = dset.dtype
@@ -539,9 +539,9 @@ def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'G
         fl.create_group(f'{tag}/{ogrp}')
 
     if unit is not None:
-        fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc)
+        fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc, overwrite=overwrite)
     else:
-        fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc)
+        fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc, overwrite=overwrite)
 
 
 
@@ -576,10 +576,24 @@ def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, D_len, \
         ValueError("Type of input simulation not recognized")
 
 
-    gp_sfr = E.read_array('PARTDATA', sim, tag, '/PartType0/StarFormationRate', noH=True, physicalUnits=True, numThreads=1)
-    gp_mass = E.read_array('PARTDATA', sim, tag, '/PartType0/Mass', numThreads=1)
-    sp_mass = E.read_array('PARTDATA', sim, tag, '/PartType4/Mass', numThreads=1)
-    dm_pmass = E.read_header('PARTDATA',sim,tag,'MassTable')[1]
+    # gp_sfr = E.read_array('PARTDATA', sim, tag, '/PartType0/StarFormationRate', noH=True, physicalUnits=True, numThreads=1)
+    try:
+        gp_mass = E.read_array('PARTDATA', sim, tag, '/PartType0/Mass', 
+                               noH=True, physicalUnits=True, numThreads=1)
+    except:
+        gp_mass = np.array([])
+
+    try:
+        sp_mass = E.read_array('PARTDATA', sim, tag, '/PartType4/Mass',
+                               noH=True, physicalUnits=True, numThreads=1)
+    except:
+        sp_mass = np.array([])
+
+    try:
+        dm_pmass = E.read_header('PARTDATA',sim,tag,'MassTable')[1] /\
+                   E.read_header('PARTDATA',sim,tag,'HubbleParam')
+    except:
+        dm_pmasss = np.array([])
 
     sbegin = np.zeros(len(S_len), dtype = np.int64)
     send = np.zeros(len(S_len), dtype = np.int64)
@@ -593,23 +607,24 @@ def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, D_len, \
 
     SMass = np.zeros(len(S_len))
     GMass = np.zeros(len(G_len))
-    total_SFR = np.zeros(len(S_len))
+    # total_SFR = np.zeros(len(S_len))
 
     for jj in range(len(sbegin)):
         SMass[jj] = np.sum(sp_mass[S_index[sbegin[jj]:send[jj]]])
         GMass[jj] = np.sum(gp_mass[G_index[gbegin[jj]:gend[jj]]])
-        total_SFR[jj] = np.sum(gp_sfr[G_index[gbegin[jj]:gend[jj]]])
+        # total_SFR[jj] = np.sum(gp_sfr[G_index[gbegin[jj]:gend[jj]]])
 
     DMass = D_len * dm_pmass
 
-    return SMass, GMass, DMass, total_SFR
+    return SMass, GMass, DMass # , total_SFR
 
 
 
 def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
     '''
-    Calculate and save the star formation rate averaged over different timescales and aperture sizes. [OPTIONAL: save stellar mass averaged over different aperture sizes]
-    
+    Calculate and save the star formation rate averaged over different timescales and aperture sizes. Also outputs the stellar mass averaged over different aperture sizes.
+   
+    :num: region number
     :tag: snapshot tag (str)
     :t: timescale over which to average over (Myr, float / list)
     :aperture_size: aperture (centred on the centre of potential of the subhalo) over which to calculate the SFR (kpc, float / list)
@@ -632,14 +647,18 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
         ValueError(F"No input option of {inp}")
 
 
+    z = float(tag[5:].replace('p','.'))
+    a = 1. / (1+z)
 
     with h5py.File(sim, 'r') as hf:
         S_len = np.array(hf[F'{tag}/Galaxy'].get('S_Length'), dtype = np.int64)
-        COP = np.array(hf[F'{tag}/Galaxy'].get('COP'), dtype = np.float64)
-        S_mass = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)*1e10
-        S_age = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64)*1e3 #Age is in Gyr, so converting the array to Myr
-        S_coods = np.array(hf[F'{tag}/Particle'].get('S_Coordinates'), dtype = np.float64)
+        G_len = np.array(hf[F'{tag}/Galaxy'].get('G_Length'), dtype = np.int64)
+        COP = np.array(hf[F'{tag}/Galaxy'].get('COP'), dtype = np.float64) * a
 
+        # S_mass = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)
+        S_mass = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)
+        S_age = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64)*1e3 #Age is in Gyr, so converting the array to Myr
+        S_coods = np.array(hf[F'{tag}/Particle'].get('S_Coordinates'), dtype = np.float64) * a
 
 
     begin = np.zeros(len(S_len), dtype = np.int64)
@@ -651,6 +670,10 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
     Mstar = {_ap: np.zeros(len(begin)) for _ap in aperture_size}
 
     for jj, kk in enumerate(begin):
+
+        if (begin[jj] - end[jj]) == 0: ## no particles
+            continue
+
         this_age = S_age[begin[jj]:end[jj]]
         this_cood = S_coods[:,begin[jj]:end[jj]]
         this_mass = S_mass[begin[jj]:end[jj]]
@@ -667,12 +690,33 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
                 ok = np.where(aperture_mask & age_mask)[0]
         
                 if len(ok) > 0:
-                    SFR[_ap][_t][jj] = np.sum(this_mass[ok])/(_t*1e6)
+                    SFR[_ap][_t][jj] = np.sum(this_mass[ok])/(_t*1e6) * 1e10
         
+    return SFR, Mstar
+
+
+def get_aperture_inst_SFR(num, tag, aperture_size = 30, inp = 'FLARES'):
+    
+    if not isinstance(aperture_size,list): aperture_size = [aperture_size]
+
+    if inp == 'FLARES':
+        sim_type = inp
+        num = "%02d"%int(num)
+        sim = F"./data/FLARES_{num}_sp_info.hdf5"
+    elif (inp == 'REF') or (inp == 'AGNdT9'):
+        sim = F"./data/EAGLE_{inp}_sp_info.hdf5"
+        sim_type = 'PERIODIC'
+    else:
+        ValueError(F"No input option of {inp}")
+
+
+    z = float(tag[5:].replace('p','.'))
+    a = 1. / (1+z)
 
     with h5py.File(sim, 'r') as hf:
+        COP = np.array(hf[F'{tag}/Galaxy'].get('COP'), dtype = np.float64) * a
         G_len = np.array(hf[F'{tag}/Galaxy'].get('G_Length'), dtype = np.int64)
-        G_coods = np.array(hf[F'{tag}/Particle'].get('G_Coordinates'), dtype = np.float64)
+        G_coods = np.array(hf[F'{tag}/Particle'].get('G_Coordinates'), dtype = np.float64) * a
         G_SFR = np.array(hf[F'{tag}/Particle'].get('G_SFR'), dtype = np.float64)
 
 
@@ -694,9 +738,9 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
             if np.sum(aperture_mask) > 0:
                 inst_SFR[_ap][jj] = np.sum(this_sfr[aperture_mask])
 
-            
 
-    return SFR, inst_SFR, Mstar
+    return inst_SFR
+
 
     # fl = flares(sim, sim_type)
     # fl.create_dataset(SFR, F"{tag}/Galaxy/SFR/SFR_{t}",
@@ -740,21 +784,21 @@ if __name__ == "__main__":
     gc.collect()
 
     if rank == 0:
-        save_to_hdf5(num, tag, indices, 'Indices', 'Index of the galaxy in the resimulation', dtype='int64', group='Galaxy', inp=inp)
-        save_to_hdf5(num, tag, ok_centrals, 'Central_Indices', 'Index of the central galaxies in the resimulation', dtype='int64', group='Galaxy', inp=inp)
-        save_to_hdf5(num, tag, dindex, 'DM_Index', 'Index of selected dark matter particles in the particle data', dtype='int64', group='Particle', inp=inp)
-        save_to_hdf5(num, tag, sindex, 'S_Index', 'Index of selected star particles in the particle data', dtype='int64', group='Particle', inp=inp)
-        save_to_hdf5(num, tag, gindex, 'G_Index', 'Index of selected gas particles in the particle data', dtype='int64', group='Particle', inp=inp)
-        save_to_hdf5(num, tag, bhindex, 'BH_Index', 'Index of selected black hole particles in the particle data', dtype='int64', group='Particle', inp=inp)
-        save_to_hdf5(num, tag, grpno, 'GroupNumber', 'Group number of the galaxy', dtype='int64', group='Galaxy', inp=inp)
-        save_to_hdf5(num, tag, sgrpno, 'SubGroupNumber', 'Subgroup number of the galaxy', dtype='int64', group='Galaxy', inp=inp)
+        save_to_hdf5(num, tag, indices, 'Indices', 'Index of the galaxy in the resimulation', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, ok_centrals, 'Central_Indices', 'Index of the central galaxies in the resimulation', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, dindex, 'DM_Index', 'Index of selected dark matter particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, sindex, 'S_Index', 'Index of selected star particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, gindex, 'G_Index', 'Index of selected gas particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, bhindex, 'BH_Index', 'Index of selected black hole particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, grpno, 'GroupNumber', 'Group number of the galaxy', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, sgrpno, 'SubGroupNumber', 'Subgroup number of the galaxy', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
 
-        save_to_hdf5(num, tag, dnum, 'DM_Length', 'Number of dark matter particles', dtype='int64', group='Galaxy', inp=inp)
-        save_to_hdf5(num, tag, snum, 'S_Length', 'Number of star particles', dtype='int64', group='Galaxy', inp=inp)
-        save_to_hdf5(num, tag, gnum, 'G_Length', 'Number of gas particles', dtype='int64', group='Galaxy', inp=inp)
+        save_to_hdf5(num, tag, dnum, 'DM_Length', 'Number of dark matter particles', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, snum, 'S_Length', 'Number of star particles', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, gnum, 'G_Length', 'Number of gas particles', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
         
-        save_to_hdf5(num, tag, cop.T, 'COP', desc = 'Number of gas particles', group='Galaxy', inp=inp, unit='cMpc')
-        save_to_hdf5(num, tag, bh_mass, 'BH_Mass', desc = 'Mass of the most massive black hole in the subgroup', group='Galaxy', inp=inp, unit='1e10 Msun')
+        save_to_hdf5(num, tag, cop.T, 'COP', desc = 'Number of gas particles', group='Galaxy', inp=inp, unit='cMpc', overwrite=True)
+        save_to_hdf5(num, tag, bh_mass, 'BH_Mass', desc = 'Mass of the most massive black hole in the subgroup', group='Galaxy', inp=inp, unit='1e10 Msun', overwrite=True)
 
 
 
