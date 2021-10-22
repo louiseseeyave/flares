@@ -551,7 +551,7 @@ def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'G
     if unit is not None:
         fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc, overwrite=overwrite)
     else:
-        fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc, overwrite=overwrite)
+        fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc, unit = unit, overwrite=overwrite)
 
 
 
@@ -794,18 +794,18 @@ if __name__ == "__main__":
     gc.collect()
 
     if rank == 0:
-        save_to_hdf5(num, tag, indices, 'Indices', 'Index of the galaxy in the resimulation', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, ok_centrals, 'Central_Indices', 'Index of the central galaxies in the resimulation', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, dindex, 'DM_Index', 'Index of selected dark matter particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, sindex, 'S_Index', 'Index of selected star particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, gindex, 'G_Index', 'Index of selected gas particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, bhindex, 'BH_Index', 'Index of selected black hole particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, grpno, 'GroupNumber', 'Group number of the galaxy', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, sgrpno, 'SubGroupNumber', 'Subgroup number of the galaxy', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, indices, 'Indices', 'Index of the galaxy in the resimulation', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
+        save_to_hdf5(num, tag, ok_centrals, 'Central_Indices', 'Index of the central galaxies in the resimulation', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
+        save_to_hdf5(num, tag, dindex, 'DM_Index', 'Index of selected dark matter particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', overwrite=True)
+        save_to_hdf5(num, tag, sindex, 'S_Index', 'Index of selected star particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', overwrite=True)
+        save_to_hdf5(num, tag, gindex, 'G_Index', 'Index of selected gas particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', overwrite=True)
+        save_to_hdf5(num, tag, bhindex, 'BH_Index', 'Index of selected black hole particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', overwrite=True)
+        save_to_hdf5(num, tag, grpno, 'GroupNumber', 'Group number of the galaxy', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
+        save_to_hdf5(num, tag, sgrpno, 'SubGroupNumber', 'Subgroup number of the galaxy', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
 
-        save_to_hdf5(num, tag, dnum, 'DM_Length', 'Number of dark matter particles', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, snum, 'S_Length', 'Number of star particles', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, gnum, 'G_Length', 'Number of gas particles', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, dnum, 'DM_Length', 'Number of dark matter particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
+        save_to_hdf5(num, tag, snum, 'S_Length', 'Number of star particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
+        save_to_hdf5(num, tag, gnum, 'G_Length', 'Number of gas particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
 
         save_to_hdf5(num, tag, cop.T, 'COP', desc = 'Number of gas particles', group='Galaxy', inp=inp, unit='cMpc', overwrite=True)
         save_to_hdf5(num, tag, bh_mass, 'BH_Mass', desc = 'Mass of the most massive black hole in the subgroup', group='Galaxy', inp=inp, unit='1e10 Msun', overwrite=True)
