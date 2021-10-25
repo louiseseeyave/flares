@@ -96,17 +96,15 @@ if __name__ == "__main__":
             out = E.read_array(tmp, sim, tag, path, noH=True, physicalUnits=True, numThreads=nThreads, CGS=eval(CGS))[sel]
         except:
             print("read_array failed")
-            if 'PartType' in path:
-                out = np.array([])
+
+            if 'coordinates' in path.lower():
+                out = np.zeros((len(indices),3))
+            elif 'velocity' in path.lower():
+                out = np.zeros((len(indices),3))
+            elif 'halfmassrad' in path.lower():
+                out = np.zeros((len(indices),6))
             else:
-                if 'coordinates' in path.lower():
-                    out = np.zeros((len(indices),3))
-                elif 'velocity' in path.lower():
-                    out = np.zeros((len(indices),3))
-                elif 'halfmassrad' in path.lower():
-                    out = np.zeros((len(indices),6))
-                else:
-                    out = np.zeros(len(indices))
+                out = np.zeros(len(indices))
 
 
         if 'age' in name.lower(): out = fl.get_age(out, z, nThreads)
