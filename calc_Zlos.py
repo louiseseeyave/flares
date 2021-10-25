@@ -14,9 +14,9 @@ from astropy import units as u
 import flares
 
 conv = (u.solMass/u.Mpc**2).to(u.solMass/u.pc**2)
+norm = np.linalg.norm
 
-
-@njit(float64[:](float64[:,:], float64[:,:], float64[:], float64[:], float64[:], float64[:], int32), fastmath=True)#, parallel=True, nogil=True)
+@njit(float64[:](float64[:,:], float64[:,:], float64[:], float64[:], float64[:], float64[:], int32), parallel=True, nogil=True)
 def get_S_LOS(s_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
 
     """
@@ -58,7 +58,7 @@ def get_S_LOS(s_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
     return Z_los_SD
 
 
-@njit(float64[:](float64[:,:], float64[:,:], float64[:], float64[:], float64[:], float64[:], int32), fastmath=True)
+@njit(float64(float64[:], float64[:,:], float64[:], float64[:], float64[:], float64[:], int32), parallel=True, nogil=True)
 def get_BH_LOS(bh_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
 
     """
@@ -92,7 +92,7 @@ def get_BH_LOS(bh_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
         ok = np.where(boverh <= 1.)[0]
         kernel_vals = np.array([lkernel[int(kbins*ll)] for ll in boverh[ok]])
 
-        Z_los_SD = np.sum((thisgmass[ok]*thisgZ[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vs_coodals) #in units of Msun/Mpc^2
+        Z_los_SD = np.sum((thisgmass[ok]*thisgZ[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals) #in units of Msun/Mpc^2
 
     else:
         Z_los_SD = 0.
@@ -124,7 +124,7 @@ def get_data(ii, tag, inp = 'FLARES', data_folder='data/'):
         G_mass = np.array(hf[tag+'/Particle'].get('G_Mass'), dtype = np.float64)*1e10
         G_sml = np.array(hf[tag+'/Particle'].get('G_sml'), dtype = np.float64)
         G_Z = np.array(hf[tag+'/Particle'].get('G_Z_smooth'), dtype = np.float64)
-        BH_coords = np.array(hf[tag+'/Particle'].get('BH_Coordinates'), dtype = np.float64)
+        BH_coords = np.array(hf[tag+'/Galaxy'].get('BH_Coordinates'), dtype = np.float64)
 
 
     return cop, S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords
@@ -197,52 +197,44 @@ if __name__ == "__main__":
     fl = flares.flares(fname = filename,sim_type = sim_type)
 
 
-    cop, S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords = get_data(num, tag, inp = inp, data_folder=data_folder)
+    cop, S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords = get_data(num, tag, inp=inp, data_folder=data_folder)
 
-    print(len(S_coords))
+    if len(S_len)==0:
+        print (F"No data to write in region {num} for tag {tag}")
+        S_los = np.zeros_like(S_len)
+        BH_los = np.zeros_like(S_len)
 
-    if len(S_len) == 0:
-        print("No subhalos... exiting.")
-        sys.exit()
+    else:
+        z = float(tag[5:].replace('p','.'))
+        S_coords=S_coords.T/(1+z)
+        G_coords=G_coords.T/(1+z)
+        BH_coords=BH_coords.T/(1+z)
+        cop=cop.T/(1+z)
 
-    if len(S_coords) == 0:
-        if rank == 0:
-            print("No star particles, creating empty dataset")
-            fl.create_dataset([], 'S_los', '{}/Particle'.format(tag),
-                desc = 'Star particle line-of-sight metal column density along the z-axis',
-                unit = 'Msun/pc^2', overwrite=True)
-            sys.exit()
-        else:
-            sys.exit()
+        sbegin, send = get_len(S_len)
+        gbegin, gend = get_len(G_len)
 
-    z = float(tag[5:].replace('p','.'))
-    S_coords=S_coords.T/(1+z)
-    G_coords=G_coords.T/(1+z)
-    cop=cop.T/(1+z)
+        # print("calc shapes", sbegin.shape, send.shape, gbegin.shape, gend.shape)
 
-
-    print("calc shapes", sbegin.shape, send.shape, gbegin.shape, gend.shape)
-
-    start = timeit.default_timer()
-
-    pool = schwimmbad.SerialPool()
+        start = timeit.default_timer()
+        pool = schwimmbad.MultiPool(processes=4)
 
 
-    calc_Zlos = partial(get_ZLOS, req_coords=S_coords, cop=cop, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, sbegin=sbegin, send=send)
-    S_los = np.concatenate(np.array(list(pool.map(calc_Zlos, \
-                             np.arange(0,len(sbegin), dtype=np.int64)))))
+        calc_Zlos = partial(get_ZLOS, req_coords=S_coords, cop=cop, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, sbegin=sbegin, send=send)
+        S_los = np.concatenate(np.array(list(pool.map(calc_Zlos, \
+                                 np.arange(0,len(sbegin), dtype=np.int64)))))
+
+        calc_Zlos = partial(get_ZLOS, req_coords=BH_coords, cop=cop, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, Stars=False)
+        BH_los = np.array(list(pool.map(calc_Zlos, \
+                            np.arange(0, len(BH_coords), dtype=np.int64))))
 
 
-    calc_Zlos = partial(get_ZLOS, req_coords=BH_coords, cop=cop, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, Stars=False)
-    BH_los = np.array(list(pool.map(calc_Zlos,np.arange(len(BH_coords)))))
+        pool.close()
+        stop = timeit.default_timer()
+        print (F"Took {np.round(stop - start, 6)} seconds")
 
 
-    pool.close()
-    stop = timeit.default_timer()
-    print (F"Took {np.round(stop - start, 6)} seconds")
-
-
-    print(F"Wrting out line-of-sight metal density to {filename}")
+    print(F"Wrting out line-of-sight metal density of {tag} to {filename}")
 
     fl.create_dataset(S_los, 'S_los', '{}/Particle'.format(tag),
         desc = 'Star particle line-of-sight metal column density along the z-axis',
@@ -250,3 +242,4 @@ if __name__ == "__main__":
 
     fl.create_dataset(BH_los, 'BH_los', '{}/Particle'.format(tag),
         desc = 'BH particle line-of-sight metal column density along the z-axis', unit = 'Msun/pc^2', overwrite=True)
+                                                                                                                                                                                                                       
