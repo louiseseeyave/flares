@@ -62,9 +62,6 @@ def extract_info(num, tag, inp='FLARES'):
     if inp == 'FLARES':
         sim_type = 'FLARES'
         fl = flares.flares(fname = './data/',sim_type=sim_type)
-        num = str(num)
-        if len(num) == 1:
-            num =  '0'+num
         _dir = fl.directory
         sim = F"{_dir}GEAGLE_{num}/data/"
 
@@ -519,10 +516,7 @@ def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'G
     if dtype is None:
         dtype = dset.dtype
 
-    num = str(num)
     if inp == 'FLARES':
-        if len(num) == 1:
-            num =  '0'+num
         filename = './{}/FLARES_{}_sp_info.hdf5'.format(data_folder, num)
         sim_type = 'FLARES'
 
@@ -557,7 +551,7 @@ def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'G
 
 
 def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, D_len, \
-                                           S_index, G_index, D_index):
+                                   S_index, G_index, D_index, data_folder = 'data/'):
     """
     Recalculate subhalo properties, such as the stellar/total mass and SFR,
     after inclusion of spurious galaxies.
@@ -565,21 +559,18 @@ def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, D_len, \
 
     if inp == 'FLARES':
         sim_type = 'FLARES'
-        fl = flares.flares(fname = './data/',sim_type=sim_type)
-        num = str(num)
-        if len(num) == 1:
-            num =  '0'+num
+        fl = flares.flares(fname = F'./{data_folder}/',sim_type=sim_type)
         _dir = fl.directory
         sim = F"{_dir}GEAGLE_{num}/data/"
 
     elif inp == 'REF':
         sim_type = 'PERIODIC'
-        fl = flares.flares(fname = './data/',sim_type=sim_type)
+        fl = flares.flares(fname = F'./{data_folder}/',sim_type=sim_type)
         sim = fl.ref_directory
 
     elif inp == 'AGNdT9':
         sim_type = 'PERIODIC'
-        fl = flares.flares(fname = './data/',sim_type=sim_type)
+        fl = flares.flares(fname = F'./{data_folder}/',sim_type=sim_type)
         sim = fl.agn_directory
 
     else:
@@ -630,7 +621,7 @@ def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, D_len, \
 
 
 
-def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
+def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_folder = 'data/'):
     '''
     Calculate and save the star formation rate averaged over different timescales and aperture sizes. Also outputs the stellar mass averaged over different aperture sizes.
 
@@ -649,9 +640,9 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
     if inp == 'FLARES':
         sim_type = inp
         num = "%02d"%int(num)
-        sim = F"./data/FLARES_{num}_sp_info.hdf5"
+        sim = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
     elif (inp == 'REF') or (inp == 'AGNdT9'):
-        sim = F"./data/EAGLE_{inp}_sp_info.hdf5"
+        sim = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
     else:
         ValueError(F"No input option of {inp}")
@@ -705,16 +696,15 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
     return SFR, Mstar
 
 
-def get_aperture_inst_SFR(num, tag, aperture_size = 30, inp = 'FLARES'):
+def get_aperture_inst_SFR(num, tag, aperture_size = 30, inp = 'FLARES', data_folder = 'data/'):
 
     if not isinstance(aperture_size,list): aperture_size = [aperture_size]
 
     if inp == 'FLARES':
         sim_type = inp
-        num = "%02d"%int(num)
-        sim = F"./data/FLARES_{num}_sp_info.hdf5"
+        sim = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
     elif (inp == 'REF') or (inp == 'AGNdT9'):
-        sim = F"./data/EAGLE_{inp}_sp_info.hdf5"
+        sim = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
     else:
         ValueError(F"No input option of {inp}")
@@ -740,7 +730,10 @@ def get_aperture_inst_SFR(num, tag, aperture_size = 30, inp = 'FLARES'):
 
     for jj, kk in enumerate(begin):
         this_cood = G_coods[:,begin[jj]:end[jj]]
-        this_sfr = G_SFR[begin[jj]:end[jj]]
+        try:
+            this_sfr = G_SFR[begin[jj]:end[jj]]
+        except:
+            print (len(G_SFR), len(begin), len(end))
 
         for _ap in aperture_size:
             aperture_mask = (cdist(this_cood.T, np.array([COP[:,jj]])) < _ap * 1e-3)[:,0]
@@ -774,7 +767,9 @@ if __name__ == "__main__":
     inp = str(inp)
     data_folder = str(data_folder)
 
-    num = "%02d"%int(num)
+    if inp == 'FLARES':
+        if len(num) == 1:
+            num =  '0'+num
 
     # save_to_hdf5(num, tag, inp=inp, data_folder=data_folder)
 
@@ -794,18 +789,18 @@ if __name__ == "__main__":
     gc.collect()
 
     if rank == 0:
-        save_to_hdf5(num, tag, indices, 'Indices', 'Index of the galaxy in the resimulation', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
-        save_to_hdf5(num, tag, ok_centrals, 'Central_Indices', 'Index of the central galaxies in the resimulation', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
-        save_to_hdf5(num, tag, dindex, 'DM_Index', 'Index of selected dark matter particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', overwrite=True)
-        save_to_hdf5(num, tag, sindex, 'S_Index', 'Index of selected star particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', overwrite=True)
-        save_to_hdf5(num, tag, gindex, 'G_Index', 'Index of selected gas particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', overwrite=True)
-        save_to_hdf5(num, tag, bhindex, 'BH_Index', 'Index of selected black hole particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', overwrite=True)
-        save_to_hdf5(num, tag, grpno, 'GroupNumber', 'Group number of the galaxy', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
-        save_to_hdf5(num, tag, sgrpno, 'SubGroupNumber', 'Subgroup number of the galaxy', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
+        save_to_hdf5(num, tag, indices, 'Indices', 'Index of the galaxy in the resimulation', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, ok_centrals, 'Central_Indices', 'Index of the central galaxies in the resimulation', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, dindex, 'DM_Index', 'Index of selected dark matter particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, sindex, 'S_Index', 'Index of selected star particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, gindex, 'G_Index', 'Index of selected gas particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, bhindex, 'BH_Index', 'Index of selected black hole particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, grpno, 'GroupNumber', 'Group number of the galaxy', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, sgrpno, 'SubGroupNumber', 'Subgroup number of the galaxy', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
 
-        save_to_hdf5(num, tag, dnum, 'DM_Length', 'Number of dark matter particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
-        save_to_hdf5(num, tag, snum, 'S_Length', 'Number of star particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
-        save_to_hdf5(num, tag, gnum, 'G_Length', 'Number of gas particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', overwrite=True)
+        save_to_hdf5(num, tag, dnum, 'DM_Length', 'Number of dark matter particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, snum, 'S_Length', 'Number of star particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, gnum, 'G_Length', 'Number of gas particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
 
-        save_to_hdf5(num, tag, cop.T, 'COP', desc = 'Number of gas particles', group='Galaxy', inp=inp, unit='cMpc', overwrite=True)
-        save_to_hdf5(num, tag, bh_mass, 'BH_Mass', desc = 'Mass of the most massive black hole in the subgroup', group='Galaxy', inp=inp, unit='1e10 Msun', overwrite=True)
+        save_to_hdf5(num, tag, cop.T, 'COP', desc = 'Number of gas particles', group='Galaxy', inp=inp, unit='cMpc', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, bh_mass, 'BH_Mass', desc = 'Mass of the most massive black hole in the subgroup', group='Galaxy', inp=inp, unit='1e10 Msun', data_folder=data_folder, overwrite=True)
