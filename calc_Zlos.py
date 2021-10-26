@@ -242,4 +242,3 @@ if __name__ == "__main__":
 
     fl.create_dataset(BH_los, 'BH_los', '{}/Particle'.format(tag),
         desc = 'BH particle line-of-sight metal column density along the z-axis', unit = 'Msun/pc^2', overwrite=True)
-                                                                                                                                                                                                                       
