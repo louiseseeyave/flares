@@ -24,21 +24,6 @@ from flare.photom import lum_to_M, M_to_lum
 import h5py
 
 
-def DTM_fit(Z, Age):
-
-    """
-    Fit function from L-GALAXIES dust modeling
-    Formula uses Age in Gyr while the supplied Age is in Myr
-    """
-
-    D0, D1, alpha, beta, gamma = 0.008, 0.329, 0.017, -1.337, 2.122
-    tau = 5e-5/(D0*Z)
-    DTM = D0 + (D1-D0)*(1.-np.exp(-alpha*(Z**beta)*((Age/(1e3*tau))**gamma)))
-    if ~np.isfinite(DTM): DTM = 0.
-
-    return DTM
-
-
 def get_data(ii, tag, inp = 'FLARES', data_folder = 'data'):
 
     num = str(ii)
@@ -52,31 +37,34 @@ def get_data(ii, tag, inp = 'FLARES', data_folder = 'data'):
         sim = rF"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
 
     with h5py.File(sim, 'r') as hf:
-        S_len = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
-        G_len = np.array(hf[tag+'/Galaxy'].get('G_Length'), dtype = np.int64)
-        S_mass = np.array(hf[tag+'/Particle'].get('S_MassInitial'), dtype = np.float64)*1e10
-        S_Z = np.array(hf[tag+'/Particle'].get('S_Z_smooth'), dtype = np.float64)
-        S_age = np.array(hf[tag+'/Particle'].get('S_Age'), dtype = np.float64)*1e3
-        S_los = np.array(hf[tag+'/Particle'].get('S_los'), dtype = np.float64)
-        G_Z = np.array(hf[tag+'/Particle'].get('G_Z_smooth'), dtype = np.float64)
-
-    begin = np.zeros(len(S_len), dtype = np.int64)
-    end = np.zeros(len(S_len), dtype = np.int64)
-    begin[1:] = np.cumsum(S_len)[:-1]
-    end = np.cumsum(S_len)
-
-    gbegin = np.zeros(len(G_len), dtype = np.int64)
-    gend = np.zeros(len(G_len), dtype = np.int64)
-    gbegin[1:] = np.cumsum(G_len)[:-1]
-    gend = np.cumsum(G_len)
+        S_len   = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
+        DTM     = np.array(hf[tag+'/Galaxy'].get('DTM'), dtype = np.float64)
+        S_mass  = np.array(hf[tag+'/Particle'].get('S_MassInitial'), dtype = np.float64)*1e10
+        S_Z     = np.array(hf[tag+'/Particle'].get('S_Z_smooth'), dtype = np.float64)
+        S_age   = np.array(hf[tag+'/Particle'].get('S_Age'), dtype = np.float64)*1e3
+        S_los   = np.array(hf[tag+'/Particle'].get('S_los'), dtype = np.float64)
+        S_ap    = np.array(hf[tag+'/Particle/Apertures'].get('Star'), dtype = np.bool)
 
 
-    return S_mass, S_Z, S_age, S_los, G_Z, S_len, G_len, begin, end, gbegin, gend
+    begin       = np.zeros(len(S_len), dtype = np.int64)
+    end         = np.zeros(len(S_len), dtype = np.int64)
+    begin[1:]   = np.cumsum(S_len)[:-1]
+    end         = np.cumsum(S_len)
+
+    return S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM
 
 
-def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
 
-    S_mass, S_Z, S_age, S_los, G_Z, S_len, G_len, begin, end, gbegin, gend = get_data(sim, tag, inp, data_folder)
+    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
+
+    if aperture=='default':
+        S_ap = S_ap[5][0]
+    else:
+        aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
+        ok = np.where(aperture_array==aperture)[0]
+        S_ap = S_ap[ok][0]
+
 
     if np.isscalar(filters):
         Lums = np.zeros(len(begin), dtype = np.float64)
@@ -85,20 +73,20 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
 
     model = models.define_model(F'BPASSv2.2.1.binary/{IMF}') # DEFINE SED GRID -
     if extinction == 'default':
-        model.dust_ISM = ('simple', {'slope': -1.})    #Define dust curve for ISM
-        model.dust_BC = ('simple', {'slope': -1.})     #Define dust curve for birth cloud component
+        model.dust_ISM  = ('simple', {'slope': -1.})    #Define dust curve for ISM
+        model.dust_BC   = ('simple', {'slope': -1.})     #Define dust curve for birth cloud component
     elif extinction == 'Calzetti':
-        model.dust_ISM = ('Starburst_Calzetti2000', {''})
-        model.dust_BC = ('Starburst_Calzetti2000', {''})
+        model.dust_ISM  = ('Starburst_Calzetti2000', {''})
+        model.dust_BC   = ('Starburst_Calzetti2000', {''})
     elif extinction == 'SMC':
-        model.dust_ISM = ('SMC_Pei92', {''})
-        model.dust_BC = ('SMC_Pei92', {''})
+        model.dust_ISM  = ('SMC_Pei92', {''})
+        model.dust_BC   = ('SMC_Pei92', {''})
     elif extinction == 'MW':
-        model.dust_ISM = ('MW_Pei92', {''})
-        model.dust_BC = ('MW_Pei92', {''})
+        model.dust_ISM  = ('MW_Pei92', {''})
+        model.dust_BC   = ('MW_Pei92', {''})
     elif extinction == 'N18':
-        model.dust_ISM = ('MW_N18', {''})
-        model.dust_BC = ('MW_N18', {''})
+        model.dust_ISM  = ('MW_N18', {''})
+        model.dust_BC   = ('MW_N18', {''})
     else: ValueError("Extinction type not recognised")
 
     z = float(tag[5:].replace('p','.'))
@@ -110,74 +98,77 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
 
     for jj in range(len(begin)):
 
-        Masses = S_mass[begin[jj]:end[jj]]
-        Ages = S_age[begin[jj]:end[jj]]
-        Metallicities = S_Z[begin[jj]:end[jj]]
-        MetSurfaceDensities = S_los[begin[jj]:end[jj]]
+        Masses              = S_mass[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        Ages                = S_age[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        Metallicities       = S_Z[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        MetSurfaceDensities = S_los[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
 
-        GMetallicities = G_Z[gbegin[jj]:gend[jj]]
-        Mage = np.nansum(Masses*Ages)/np.nansum(Masses)
-        Z = np.nanmean(GMetallicities)
-
-        MetSurfaceDensities = DTM_fit(Z, Mage) * MetSurfaceDensities
-
+        MetSurfaceDensities = DTM[jj] * MetSurfaceDensities
 
         if Type == 'Total':
-            tauVs_ISM = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
-            tauVs_BC = BC_fac * (Metallicities/0.01)
-            fesc = 0.0
+            tauVs_ISM   = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
+            tauVs_BC    = BC_fac * (Metallicities/0.01)
+            fesc        = 0.0
 
         elif Type == 'Pure-stellar':
-            tauVs_ISM = np.zeros(len(Masses))
-            tauVs_BC = np.zeros(len(Masses))
-            fesc = 1.0
+            tauVs_ISM   = np.zeros(len(Masses))
+            tauVs_BC    = np.zeros(len(Masses))
+            fesc        = 1.0
 
         elif Type == 'Intrinsic':
-            tauVs_ISM = np.zeros(len(Masses))
-            tauVs_BC = np.zeros(len(Masses))
-            fesc = 0.0
+            tauVs_ISM   = np.zeros(len(Masses))
+            tauVs_BC    = np.zeros(len(Masses))
+            fesc        = 0.0
 
         elif Type == 'Only-BC':
-            tauVs_ISM = np.zeros(len(Masses))
-            tauVs_BC = BC_fac * (Metallicities/0.01)
-            fesc = 0.0
+            tauVs_ISM   = np.zeros(len(Masses))
+            tauVs_BC    = BC_fac * (Metallicities/0.01)
+            fesc        = 0.0
 
         else:
             ValueError(F"Undefined Type {Type}")
 
 
-        Lnu = models.generate_Lnu(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, fesc = fesc, log10t_BC = log10t_BC) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
-        Lums[jj] = list(Lnu.values())
+        Lnu         = models.generate_Lnu(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, fesc = fesc, log10t_BC = log10t_BC) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+        Lums[jj]    = list(Lnu.values())
 
     return Lums
 
 
 
-def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters = flare.filters.NIRCam_W, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters = flare.filters.NIRCam_W, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
 
-    S_mass, S_Z, S_age, S_los, G_Z, S_len, G_len, begin, end, gbegin, gend = get_data(sim, tag, inp, data_folder)
+    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
+
+    if aperture=='default':
+        S_ap = S_ap[5][0]
+    else:
+        aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
+        ok = np.where(aperture_array==aperture)[0]
+        S_ap = S_ap[ok][0]
+
 
     if np.isscalar(filters):
-        Fnus = np.zeros(len(begin), dtype = np.float64)
+        Lums = np.zeros(len(begin), dtype = np.float64)
     else:
-        Fnus = np.zeros((len(begin), len(filters)), dtype = np.float64)
+        Lums = np.zeros((len(begin), len(filters)), dtype = np.float64)
 
     model = models.define_model(F'BPASSv2.2.1.binary/{IMF}') # DEFINE SED GRID -
     if extinction == 'default':
-        model.dust_ISM = ('simple', {'slope': -1.})    #Define dust curve for ISM
-        model.dust_BC = ('simple', {'slope': -1.})     #Define dust curve for birth cloud component
+        model.dust_ISM  = ('simple', {'slope': -1.})    #Define dust curve for ISM
+        model.dust_BC   = ('simple', {'slope': -1.})     #Define dust curve for birth cloud component
     elif extinction == 'Calzetti':
-        model.dust_ISM = ('Starburst_Calzetti2000', {''})
-        model.dust_BC = ('Starburst_Calzetti2000', {''})
+        model.dust_ISM  = ('Starburst_Calzetti2000', {''})
+        model.dust_BC   = ('Starburst_Calzetti2000', {''})
     elif extinction == 'SMC':
-        model.dust_ISM = ('SMC_Pei92', {''})
-        model.dust_BC = ('SMC_Pei92', {''})
+        model.dust_ISM  = ('SMC_Pei92', {''})
+        model.dust_BC   = ('SMC_Pei92', {''})
     elif extinction == 'MW':
-        model.dust_ISM = ('MW_Pei92', {''})
-        model.dust_BC = ('MW_Pei92', {''})
+        model.dust_ISM  = ('MW_Pei92', {''})
+        model.dust_BC   = ('MW_Pei92', {''})
     elif extinction == 'N18':
-        model.dust_ISM = ('MW_N18', {''})
-        model.dust_BC = ('MW_N18', {''})
+        model.dust_ISM  = ('MW_N18', {''})
+        model.dust_BC   = ('MW_N18', {''})
     else: ValueError("Extinction type not recognised")
 
     z = float(tag[5:].replace('p','.'))
@@ -188,98 +179,107 @@ def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters 
     model.create_Fnu_grid(F, z, cosmo) # --- create new Fnu grid for each filter. In units of nJy/M_sol
 
     for jj in range(len(begin)):
-        Masses = S_mass[begin[jj]:end[jj]]
-        Ages = S_age[begin[jj]:end[jj]]
-        Metallicities = S_Z[begin[jj]:end[jj]]
-        MetSurfaceDensities = S_los[begin[jj]:end[jj]]
 
-        GMetallicities = G_Z[gbegin[jj]:gend[jj]]
-        Mage = np.nansum(Masses*Ages)/np.nansum(Masses)
-        Z = np.nanmean(GMetallicities)
+        Masses              = S_mass[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        Ages                = S_age[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        Metallicities       = S_Z[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        MetSurfaceDensities = S_los[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
 
-        MetSurfaceDensities = DTM_fit(Z, Mage) * MetSurfaceDensities
+        MetSurfaceDensities = DTM[jj] * MetSurfaceDensities
 
         if Type == 'Total':
-            tauVs_ISM = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
-            tauVs_BC = BC_fac * (Metallicities/0.01)
-            fesc = 0.0
+            tauVs_ISM   = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
+            tauVs_BC    = BC_fac * (Metallicities/0.01)
+            fesc        = 0.0
 
         elif Type == 'Pure-stellar':
-            tauVs_ISM = np.zeros(len(Masses))
-            tauVs_BC = np.zeros(len(Masses))
-            fesc = 1.0
+            tauVs_ISM   = np.zeros(len(Masses))
+            tauVs_BC    = np.zeros(len(Masses))
+            fesc        = 1.0
 
         elif Type == 'Intrinsic':
-            tauVs_ISM = np.zeros(len(Masses))
-            tauVs_BC = np.zeros(len(Masses))
-            fesc = 0.0
+            tauVs_ISM   = np.zeros(len(Masses))
+            tauVs_BC    = np.zeros(len(Masses))
+            fesc        = 0.0
 
         elif Type == 'Only-BC':
-            tauVs_ISM = np.zeros(len(Masses))
-            tauVs_BC = BC_fac * (Metallicities/0.01)
-            fesc = 0.0
+            tauVs_ISM   = np.zeros(len(Masses))
+            tauVs_BC    = BC_fac * (Metallicities/0.01)
+            fesc        = 0.0
 
         else:
             ValueError(F"Undefined Type {Type}")
 
-        Fnu = models.generate_Fnu(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, fesc = fesc, log10t_BC = log10t_BC) # --- calculate rest-frame flux of each object in nJy
+        Fnu         = models.generate_Fnu(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, fesc = fesc, log10t_BC = log10t_BC) # --- calculate rest-frame flux of each object in nJy
 
-        Fnus[jj] = list(Fnu.values())
+        Fnus[jj]    = list(Fnu.values())
 
     return Fnus
 
 
-def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = False, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = False, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
 
-    S_mass, S_Z, S_age, S_los, G_Z, S_len, G_len, begin, end, gbegin, gend = get_data(sim, tag, inp, data_folder)
+    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
+
+    if aperture=='default':
+        S_ap = S_ap[5][0]
+    else:
+        aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
+        ok = np.where(aperture_array==aperture)[0]
+        S_ap = S_ap[ok][0]
+
     # --- calculate intrinsic quantities
     if extinction == 'default':
-        dust_ISM = ('simple', {'slope': -1.})    #Define dust curve for ISM
-        dust_BC = ('simple', {'slope': -1.})     #Define dust curve for birth cloud component
+        model.dust_ISM  = ('simple', {'slope': -1.})    #Define dust curve for ISM
+        model.dust_BC   = ('simple', {'slope': -1.})     #Define dust curve for birth cloud component
     elif extinction == 'Calzetti':
-        dust_ISM = ('Starburst_Calzetti2000', {''})
-        dust_BC = ('Starburst_Calzetti2000', {''})
+        model.dust_ISM  = ('Starburst_Calzetti2000', {''})
+        model.dust_BC   = ('Starburst_Calzetti2000', {''})
     elif extinction == 'SMC':
-        dust_ISM = ('SMC_Pei92', {''})
-        dust_BC = ('SMC_Pei92', {''})
+        model.dust_ISM  = ('SMC_Pei92', {''})
+        model.dust_BC   = ('SMC_Pei92', {''})
     elif extinction == 'MW':
-        dust_ISM = ('MW_Pei92', {''})
-        dust_BC = ('MW_Pei92', {''})
+        model.dust_ISM  = ('MW_Pei92', {''})
+        model.dust_BC   = ('MW_Pei92', {''})
     elif extinction == 'N18':
-        dust_ISM = ('MW_N18', {''})
-        dust_BC = ('MW_N18', {''})
+        model.dust_ISM  = ('MW_N18', {''})
+        model.dust_BC   = ('MW_N18', {''})
     else: ValueError("Extinction type not recognised")
-
 
     lum = np.zeros(len(begin), dtype = np.float64)
     EW = np.zeros(len(begin), dtype = np.float64)
 
-
     # --- initialise model with SPS model and IMF. Set verbose = True to see a list of available lines.
     m = models.EmissionLines(F'BPASSv2.2.1.binary/{IMF}', dust_BC = dust_BC, dust_ISM = dust_ISM, verbose = False)
+
     for jj in range(len(begin)):
 
-        Masses = S_mass[begin[jj]:end[jj]]
-        Ages = S_age[begin[jj]:end[jj]]
-        Metallicities = S_Z[begin[jj]:end[jj]]
-        MetSurfaceDensities = S_los[begin[jj]:end[jj]]
+        Masses              = S_mass[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        Ages                = S_age[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        Metallicities       = S_Z[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        MetSurfaceDensities = S_los[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
 
-        GMetallicities = G_Z[gbegin[jj]:gend[jj]]
-        Mage = np.nansum(Masses*Ages)/np.nansum(Masses)
-        Z = np.nanmean(GMetallicities)
-        MetSurfaceDensities = DTM_fit(Z, Mage) * MetSurfaceDensities
+        MetSurfaceDensities = DTM[jj] * MetSurfaceDensities
 
         if Type == 'Total':
-            tauVs_ISM = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
-            tauVs_BC = BC_fac * (Metallicities/0.01)
+            tauVs_ISM   = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
+            tauVs_BC    = BC_fac * (Metallicities/0.01)
+            fesc        = 0.0
+
+        elif Type == 'Pure-stellar':
+            tauVs_ISM   = np.zeros(len(Masses))
+            tauVs_BC    = np.zeros(len(Masses))
+            fesc        = 1.0
 
         elif Type == 'Intrinsic':
-            tauVs_ISM = np.zeros(len(Masses))
-            tauVs_BC = np.zeros(len(Masses))
+            tauVs_ISM   = np.zeros(len(Masses))
+            tauVs_BC    = np.zeros(len(Masses))
+            fesc        = 0.0
 
         elif Type == 'Only-BC':
-            tauVs_ISM = np.zeros(len(Masses))
-            tauVs_BC = BC_fac * (Metallicities/0.01)
+            tauVs_ISM   = np.zeros(len(Masses))
+            tauVs_BC    = BC_fac * (Metallicities/0.01)
+            fesc        = 0.0
 
         else:
             ValueError(F"Undefined Type {Type}")
@@ -295,43 +295,42 @@ def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300
 
 def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
 
-    S_mass, S_Z, S_age, S_los, G_Z, S_len, G_len, begin, end, gbegin, gend = get_data(sim, tag, inp, data_folder)
+    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
+
+    if aperture=='default':
+        S_ap = S_ap[5][0]
+    else:
+        aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
+        ok = np.where(aperture_array==aperture)[0]
+        S_ap = S_ap[ok][0]
 
     model = models.define_model(F'BPASSv2.2.1.binary/{IMF}') # DEFINE SED GRID -
     # --- calculate intrinsic quantities
     if extinction == 'default':
-        model.dust_ISM = ('simple', {'slope': -1.})    #Define dust curve for ISM
-        model.dust_BC = ('simple', {'slope': -1.})     #Define dust curve for birth cloud component
-
+        model.dust_ISM  = ('simple', {'slope': -1.})    #Define dust curve for ISM
+        model.dust_BC   = ('simple', {'slope': -1.})     #Define dust curve for birth cloud component
     elif extinction == 'Calzetti':
-        model.dust_ISM = ('Starburst_Calzetti2000', {''})
-        model.dust_BC = ('Starburst_Calzetti2000', {''})
-
+        model.dust_ISM  = ('Starburst_Calzetti2000', {''})
+        model.dust_BC   = ('Starburst_Calzetti2000', {''})
     elif extinction == 'SMC':
-        model.dust_ISM = ('SMC_Pei92', {''})
-        model.dust_BC = ('SMC_Pei92', {''})
-
+        model.dust_ISM  = ('SMC_Pei92', {''})
+        model.dust_BC   = ('SMC_Pei92', {''})
     elif extinction == 'MW':
-        model.dust_ISM = ('MW_Pei92', {''})
-        model.dust_BC = ('MW_Pei92', {''})
-
+        model.dust_ISM  = ('MW_Pei92', {''})
+        model.dust_BC   = ('MW_Pei92', {''})
     elif extinction == 'N18':
-        model.dust_ISM = ('MW_N18', {''})
-        model.dust_BC = ('MW_N18', {''})
-
+        model.dust_ISM  = ('MW_N18', {''})
+        model.dust_BC   = ('MW_N18', {''})
     else: ValueError("Extinction type not recognised")
 
     for jj in range(len(begin)):
 
-        Masses = S_mass[begin[jj]:end[jj]]
-        Ages = S_age[begin[jj]:end[jj]]
-        Metallicities = S_Z[begin[jj]:end[jj]]
-        MetSurfaceDensities = S_los[begin[jj]:end[jj]]
+        Masses              = S_mass[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        Ages                = S_age[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        Metallicities       = S_Z[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        MetSurfaceDensities = S_los[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
 
-        GMetallicities = G_Z[gbegin[jj]:gend[jj]]
-        Mage = np.nansum(Masses*Ages)/np.nansum(Masses)
-        Z = np.nanmean(GMetallicities)
-        MetSurfaceDensities = DTM_fit(Z, Mage) * MetSurfaceDensities
+        MetSurfaceDensities = DTM[jj] * MetSurfaceDensities
 
         tauVs_ISM = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
         tauVs_BC = BC_fac * (Metallicities/0.01)

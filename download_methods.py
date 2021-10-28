@@ -62,9 +62,6 @@ def extract_info(num, tag, inp='FLARES'):
     if inp == 'FLARES':
         sim_type = 'FLARES'
         fl = flares.flares(fname = './data/',sim_type=sim_type)
-        num = str(num)
-        if len(num) == 1:
-            num =  '0'+num
         _dir = fl.directory
         sim = F"{_dir}GEAGLE_{num}/data/"
 
@@ -122,7 +119,7 @@ def extract_info(num, tag, inp='FLARES'):
     gp_sgrpn = E.read_array('PARTDATA', sim, tag, '/PartType0/SubGroupNumber', numThreads=4)
     gp_grpn = E.read_array('PARTDATA', sim, tag, '/PartType0/GroupNumber', numThreads=4)
     gp_sfr = E.read_array('PARTDATA', sim, tag, '/PartType0/StarFormationRate', noH=True, physicalUnits=True, numThreads=4)
-    
+
     #Star particle
     try:
         sp_cood = E.read_array('PARTDATA', sim, tag, '/PartType4/Coordinates', noH=True, physicalUnits=True, numThreads=4)
@@ -273,7 +270,7 @@ def extract_info(num, tag, inp='FLARES'):
             for xx in range(3):
                 ss*=np.logical_or((min_xyz[xx]-dl<=sp_cood[:,xx]/a)*(sp_cood[:,xx]/a<=max_xyz[xx]+dl), np.logical_or((min_xyz[xx]/a-dl<=sp_cood[:,xx]/a+boxl)*(sp_cood[:,xx]/a+boxl<=max_xyz[xx]+dl), (min_xyz[xx]-dl<=sp_cood[:,xx]/a-boxl)*(sp_cood[:,xx]/a-boxl<=max_xyz[xx]+dl)))
             ss = np.where(ss)[0]
-    
+
             sp_cood = sp_cood[ss]
             sp_sgrpn = sp_sgrpn[ss]
             sp_grpn = sp_grpn[ss]
@@ -299,24 +296,32 @@ def extract_info(num, tag, inp='FLARES'):
 
     tdindex = np.zeros(len(dm_grpn), dtype = np.int32)
     tgindex = np.zeros(len(gp_grpn), dtype = np.int32)
-    
+
     if SP:
         tsindex = np.zeros(len(sp_grpn), dtype = np.int32)
 
     gc.collect()
 
     kk = 0
-    dist = 0.1 #in pMpc for 30pkpc Aperture
+    # dist = 0.1 #in pMpc for 100 pkpc Aperture, writes out particle properties within this aperture
+    sel_dist = 0.03 #in pMpc for 30 pkpc Aperture, only galaxies with more than 100 star + gas particles within this aperture is written out to the master file. Only spurious galaxies within 30 pkpc are selected
     bounds = np.array([boxl, boxl, boxl])   #https://stackoverflow.com/a/11109244
     for ii, jj in enumerate(thisok):
 
         #start = timeit.default_timer()
 
         d_ok = np.where((dm_sgrpn-sgrpno[jj]==0) & (dm_grpn-grpno[jj]==0))[0]
+
         g_ok = np.where((gp_sgrpn-sgrpno[jj]==0) & (gp_grpn-grpno[jj]==0))[0]
-        
+        tmp = gp_cood[g_ok]-cop[jj]
+        if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+        g_ok_sel = g_ok[norm(tmp,axis=1)<=sel_dist]
+
         if SP:
             s_ok = np.where((sp_sgrpn-sgrpno[jj]==0) & (sp_grpn-grpno[jj]==0))[0]
+            tmp = sp_cood[s_ok]-cop[jj]
+            if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
+            s_ok_sel = s_ok[norm(tmp,axis=1)<=sel_dist]
         else:
             s_ok = np.array([])
 
@@ -335,24 +340,26 @@ def extract_info(num, tag, inp='FLARES'):
                     spurious_d_ok = np.where((dm_sgrpn-sgrpno[_jj]==0) & (dm_grpn-grpno[_jj]==0))[0]
                     tmp = dm_cood[spurious_d_ok]-cop[jj]
                     if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
-                    d_ok = np.append(d_ok, spurious_d_ok[norm(tmp,axis=1)<=dist])
+                    d_ok = np.append(d_ok, spurious_d_ok[norm(tmp,axis=1)<=sel_dist])
 
                     spurious_g_ok = np.where((gp_sgrpn-sgrpno[_jj]==0) & (gp_grpn-grpno[_jj]==0))[0]
                     tmp = gp_cood[spurious_g_ok]-cop[jj]
                     if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
-                    g_ok = np.append(g_ok, spurious_g_ok[norm(tmp,axis=1)<=dist])
-                    
+                    g_ok = np.append(g_ok, spurious_g_ok[norm(tmp,axis=1)<=sel_dist])
+                    g_ok_sel = np.append(g_ok_sel, spurious_g_ok[norm(tmp,axis=1)<=sel_dist])
+
                     if SP:
                         spurious_s_ok = np.where((sp_sgrpn-sgrpno[_jj]==0) & (sp_grpn-grpno[_jj]==0))[0]
                         tmp = sp_cood[spurious_s_ok]-cop[jj]
                         if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
-                        s_ok = np.append(s_ok, spurious_s_ok[norm(tmp,axis=1)<=dist])
+                        s_ok = np.append(s_ok, spurious_s_ok[norm(tmp,axis=1)<=sel_dist])
+                        s_ok_sel = np.append(s_ok_sel, spurious_s_ok[norm(tmp,axis=1)<=sel_dist])
 
                     if BH:
                         spurious_bh_ok = np.where((bh_sgrpn-sgrpno[_jj]==0) & (bh_grpn-grpno[_jj]==0))[0]
                         tmp = bh_cood[spurious_bh_ok]-cop[jj]
                         if inp!='FLARES': tmp = np.min(np.dstack(((tmp) % bounds, (-tmp) % bounds)), axis = 2)
-                        bh_ok = np.append(bh_ok, spurious_bh_ok[norm(tmp,axis=1)<=dist])
+                        bh_ok = np.append(bh_ok, spurious_bh_ok[norm(tmp,axis=1)<=sel_dist])
 
                 #Add in here the subhalo properties that needed
                 #to be added due to spurious
@@ -363,7 +370,7 @@ def extract_info(num, tag, inp='FLARES'):
 
         #stop = timeit.default_timer()
 
-        if len(s_ok) + len(g_ok) >= 100:
+        if len(s_ok_sel) + len(g_ok_sel) >= 100:
 
             #print ("Calculating indices took {}s".format(np.round(stop - start,6)))
             # start = timeit.default_timer()
@@ -420,7 +427,7 @@ def extract_info(num, tag, inp='FLARES'):
     ##End of loop ii, jj##
 
     del dm_sgrpn, dm_grpn, dm_cood, gp_sgrpn, gp_grpn, gp_cood, gp_sfr
-    if SP: del sp_sgrpn, sp_grpn, sp_cood, 
+    if SP: del sp_sgrpn, sp_grpn, sp_cood,
     if BH: del bh_sgrpn, bh_grpn, bh_mass
 
     gc.collect()
@@ -500,7 +507,7 @@ def extract_info(num, tag, inp='FLARES'):
         grpno = grpno[indices]
 
 
-    return ok_centrals, indices, sgrpno, grpno, cop, dnum, snum, gnum, dindex, sindex, gindex, bhindex, bh_mass 
+    return ok_centrals, indices, sgrpno, grpno, cop, dnum, snum, gnum, dindex, sindex, gindex, bhindex, bh_mass
 ##End of function `extract_info`
 
 
@@ -509,10 +516,7 @@ def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'G
     if dtype is None:
         dtype = dset.dtype
 
-    num = str(num)
     if inp == 'FLARES':
-        if len(num) == 1:
-            num =  '0'+num
         filename = './{}/FLARES_{}_sp_info.hdf5'.format(data_folder, num)
         sim_type = 'FLARES'
 
@@ -524,8 +528,8 @@ def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'G
 
     else:
         ValueError("Type of input simulation not recognized")
-        
-    
+
+
     if verbose: print("Writing out required properties to hdf5")
 
     fl = flares.flares(fname = filename,sim_type = sim_type)
@@ -541,35 +545,32 @@ def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'G
     if unit is not None:
         fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc, overwrite=overwrite)
     else:
-        fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc, overwrite=overwrite)
+        fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc, unit = unit, overwrite=overwrite)
 
 
 
 
 def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, D_len, \
-                                           S_index, G_index, D_index):
+                                   S_index, G_index, D_index, data_folder = 'data/'):
     """
-    Recalculate subhalo properties, such as the stellar/total mass and SFR, 
+    Recalculate subhalo properties, such as the stellar/total mass and SFR,
     after inclusion of spurious galaxies.
     """
 
     if inp == 'FLARES':
         sim_type = 'FLARES'
-        fl = flares.flares(fname = './data/',sim_type=sim_type)
-        num = str(num)
-        if len(num) == 1:
-            num =  '0'+num
+        fl = flares.flares(fname = F'./{data_folder}/',sim_type=sim_type)
         _dir = fl.directory
         sim = F"{_dir}GEAGLE_{num}/data/"
 
     elif inp == 'REF':
         sim_type = 'PERIODIC'
-        fl = flares.flares(fname = './data/',sim_type=sim_type)
+        fl = flares.flares(fname = F'./{data_folder}/',sim_type=sim_type)
         sim = fl.ref_directory
 
     elif inp == 'AGNdT9':
         sim_type = 'PERIODIC'
-        fl = flares.flares(fname = './data/',sim_type=sim_type)
+        fl = flares.flares(fname = F'./{data_folder}/',sim_type=sim_type)
         sim = fl.agn_directory
 
     else:
@@ -578,7 +579,7 @@ def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, D_len, \
 
     # gp_sfr = E.read_array('PARTDATA', sim, tag, '/PartType0/StarFormationRate', noH=True, physicalUnits=True, numThreads=1)
     try:
-        gp_mass = E.read_array('PARTDATA', sim, tag, '/PartType0/Mass', 
+        gp_mass = E.read_array('PARTDATA', sim, tag, '/PartType0/Mass',
                                noH=True, physicalUnits=True, numThreads=1)
     except:
         gp_mass = np.array([])
@@ -620,10 +621,10 @@ def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, D_len, \
 
 
 
-def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
+def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_folder = 'data/'):
     '''
     Calculate and save the star formation rate averaged over different timescales and aperture sizes. Also outputs the stellar mass averaged over different aperture sizes.
-   
+
     :num: region number
     :tag: snapshot tag (str)
     :t: timescale over which to average over (Myr, float / list)
@@ -632,16 +633,15 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
 
     :return: flares master file with requested properties added
     '''
-   
+
     if not isinstance(t,list): t = [t]
     if not isinstance(aperture_size,list): aperture_size = [aperture_size]
 
     if inp == 'FLARES':
         sim_type = inp
-        num = "%02d"%int(num)
-        sim = F"./data/FLARES_{num}_sp_info.hdf5"
+        sim = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
     elif (inp == 'REF') or (inp == 'AGNdT9'):
-        sim = F"./data/EAGLE_{inp}_sp_info.hdf5"
+        sim = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
     else:
         ValueError(F"No input option of {inp}")
@@ -655,10 +655,11 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
         G_len = np.array(hf[F'{tag}/Galaxy'].get('G_Length'), dtype = np.int64)
         COP = np.array(hf[F'{tag}/Galaxy'].get('COP'), dtype = np.float64) * a
 
-        # S_mass = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)
-        S_mass = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)
+        S_mass = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)
+        # S_mass = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)
         S_age = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64)*1e3 #Age is in Gyr, so converting the array to Myr
         S_coods = np.array(hf[F'{tag}/Particle'].get('S_Coordinates'), dtype = np.float64) * a
+        G_coods = np.array(hf[F'{tag}/Particle'].get('G_Coordinates'), dtype = np.float64) * a
 
 
     begin = np.zeros(len(S_len), dtype = np.int64)
@@ -666,8 +667,15 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
     begin[1:] = np.cumsum(S_len)[:-1]
     end = np.cumsum(S_len)
 
+    gbegin = np.zeros(len(G_len), dtype = np.int64)
+    gend = np.zeros(len(G_len), dtype = np.int64)
+    gbegin[1:] = np.cumsum(G_len)[:-1]
+    gend = np.cumsum(G_len)
+
     SFR = {_ap: {_t: np.zeros(len(begin)) for _t in t} for _ap in aperture_size}
     Mstar = {_ap: np.zeros(len(begin)) for _ap in aperture_size}
+    S_ap_bool = np.zeros((len(aperture_size),len(S_coods.T)), dtype=np.bool)
+    G_ap_bool = np.zeros((len(aperture_size),len(G_coods.T)), dtype=np.bool)
 
     for jj, kk in enumerate(begin):
 
@@ -678,33 +686,37 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES'):
         this_cood = S_coods[:,begin[jj]:end[jj]]
         this_mass = S_mass[begin[jj]:end[jj]]
 
+        this_gcood = G_coods[:,gbegin[jj]:gend[jj]]
+
         ## filter by age and aperture
-        for _ap in aperture_size:
+        for ll, _ap in enumerate(aperture_size):
             aperture_mask = (cdist(this_cood.T, np.array([COP[:,jj]])) < _ap * 1e-3)[:,0]
-            
+            # print (np.shape(S_ap_bool[_ap][begin[jj]:end[jj]]), np.shape(aperture_mask), begin[jj]-end[jj])
+            S_ap_bool[ll][begin[jj]:end[jj]] = aperture_mask
+            G_ap_bool[ll][gbegin[jj]:gend[jj]] = (cdist(this_gcood.T, np.array([COP[:,jj]])) < _ap * 1e-3)[:,0]
+
             if np.sum(aperture_mask) > 0:
                 Mstar[_ap][jj] = np.sum(this_mass[aperture_mask])
 
             for _t in t:
                 age_mask = this_age <= _t
                 ok = np.where(aperture_mask & age_mask)[0]
-        
+
                 if len(ok) > 0:
                     SFR[_ap][_t][jj] = np.sum(this_mass[ok])/(_t*1e6) * 1e10
-        
-    return SFR, Mstar
+
+    return SFR, Mstar, S_ap_bool, G_ap_bool
 
 
-def get_aperture_inst_SFR(num, tag, aperture_size = 30, inp = 'FLARES'):
-    
+def get_aperture_inst_SFR(num, tag, aperture_size = 30, inp = 'FLARES', data_folder = 'data/'):
+
     if not isinstance(aperture_size,list): aperture_size = [aperture_size]
 
     if inp == 'FLARES':
         sim_type = inp
-        num = "%02d"%int(num)
-        sim = F"./data/FLARES_{num}_sp_info.hdf5"
+        sim = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
     elif (inp == 'REF') or (inp == 'AGNdT9'):
-        sim = F"./data/EAGLE_{inp}_sp_info.hdf5"
+        sim = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
     else:
         ValueError(F"No input option of {inp}")
@@ -730,11 +742,14 @@ def get_aperture_inst_SFR(num, tag, aperture_size = 30, inp = 'FLARES'):
 
     for jj, kk in enumerate(begin):
         this_cood = G_coods[:,begin[jj]:end[jj]]
-        this_sfr = G_SFR[begin[jj]:end[jj]]
+        try:
+            this_sfr = G_SFR[begin[jj]:end[jj]]
+        except:
+            print (len(G_SFR), len(begin), len(end))
 
         for _ap in aperture_size:
             aperture_mask = (cdist(this_cood.T, np.array([COP[:,jj]])) < _ap * 1e-3)[:,0]
-            
+
             if np.sum(aperture_mask) > 0:
                 inst_SFR[_ap][jj] = np.sum(this_sfr[aperture_mask])
 
@@ -764,11 +779,13 @@ if __name__ == "__main__":
     inp = str(inp)
     data_folder = str(data_folder)
 
-    num = "%02d"%int(num)
+    if inp == 'FLARES':
+        if len(num) == 1:
+            num =  '0'+num
 
     # save_to_hdf5(num, tag, inp=inp, data_folder=data_folder)
 
-    ok_centrals, indices, sgrpno, grpno, cop, dnum, snum, gnum, dindex, sindex, gindex, bhindex, bh_mass = extract_info(num, tag, inp) 
+    ok_centrals, indices, sgrpno, grpno, cop, dnum, snum, gnum, dindex, sindex, gindex, bhindex, bh_mass = extract_info(num, tag, inp)
 
     ## MPI parameters
     comm = MPI.COMM_WORLD
@@ -784,21 +801,18 @@ if __name__ == "__main__":
     gc.collect()
 
     if rank == 0:
-        save_to_hdf5(num, tag, indices, 'Indices', 'Index of the galaxy in the resimulation', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, ok_centrals, 'Central_Indices', 'Index of the central galaxies in the resimulation', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, dindex, 'DM_Index', 'Index of selected dark matter particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, sindex, 'S_Index', 'Index of selected star particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, gindex, 'G_Index', 'Index of selected gas particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, bhindex, 'BH_Index', 'Index of selected black hole particles in the particle data', dtype='int64', group='Particle', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, grpno, 'GroupNumber', 'Group number of the galaxy', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, sgrpno, 'SubGroupNumber', 'Subgroup number of the galaxy', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
+        save_to_hdf5(num, tag, indices, 'Indices', 'Index of the galaxy in the resimulation', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, ok_centrals, 'Central_Indices', 'Index of the central galaxies in the resimulation', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, dindex, 'DM_Index', 'Index of selected dark matter particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, sindex, 'S_Index', 'Index of selected star particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, gindex, 'G_Index', 'Index of selected gas particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, bhindex, 'BH_Index', 'Index of selected black hole particles in the particle data', dtype='int64', group='Particle', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, grpno, 'GroupNumber', 'Group number of the galaxy', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, sgrpno, 'SubGroupNumber', 'Subgroup number of the galaxy', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
 
-        save_to_hdf5(num, tag, dnum, 'DM_Length', 'Number of dark matter particles', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, snum, 'S_Length', 'Number of star particles', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
-        save_to_hdf5(num, tag, gnum, 'G_Length', 'Number of gas particles', dtype='int64', group='Galaxy', inp=inp, overwrite=True)
-        
-        save_to_hdf5(num, tag, cop.T, 'COP', desc = 'Number of gas particles', group='Galaxy', inp=inp, unit='cMpc', overwrite=True)
-        save_to_hdf5(num, tag, bh_mass, 'BH_Mass', desc = 'Mass of the most massive black hole in the subgroup', group='Galaxy', inp=inp, unit='1e10 Msun', overwrite=True)
+        save_to_hdf5(num, tag, dnum, 'DM_Length', 'Number of dark matter particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, snum, 'S_Length', 'Number of star particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, gnum, 'G_Length', 'Number of gas particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
 
-
-
+        save_to_hdf5(num, tag, cop.T, 'COP', desc = 'Number of gas particles', group='Galaxy', inp=inp, unit='cMpc', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, bh_mass, 'BH_Mass', desc = 'Mass of the most massive black hole in the subgroup', group='Galaxy', inp=inp, unit='1e10 Msun', data_folder=data_folder, overwrite=True)
