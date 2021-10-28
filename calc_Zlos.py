@@ -1,5 +1,5 @@
 """
-    Calculates the line-of-sight metal density for star and SMBH particles using gas particles within 30 pkpc
+    Calculates the line-of-sight metal density for star and SMBH particles using gas particles within a given aperture. At the moment the default is 30 pkpc same as the original EAGLE prescription
 """
 
 import timeit, sys
@@ -118,7 +118,7 @@ def get_data(ii, tag, inp = 'FLARES', data_folder='data/'):
     with h5py.File(filename, 'r') as hf:
         S_len = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
         G_len = np.array(hf[tag+'/Galaxy'].get('G_Length'), dtype = np.int64)
-        cop = np.array(hf[tag+'/Galaxy'].get('COP'), dtype = np.float64)
+
         S_coords = np.array(hf[tag+'/Particle'].get('S_Coordinates'), dtype = np.float64)
         G_coords = np.array(hf[tag+'/Particle'].get('G_Coordinates'), dtype = np.float64)
         G_mass = np.array(hf[tag+'/Particle'].get('G_Mass'), dtype = np.float64)*1e10
@@ -126,8 +126,11 @@ def get_data(ii, tag, inp = 'FLARES', data_folder='data/'):
         G_Z = np.array(hf[tag+'/Particle'].get('G_Z_smooth'), dtype = np.float64)
         BH_coords = np.array(hf[tag+'/Galaxy'].get('BH_Coordinates'), dtype = np.float64)
 
+        S_ap = np.array(hf[tag+'/Particle/Apertures'].get('Star'), dtype = np.bool)
+        G_ap = np.array(hf[tag+'/Particle/Apertures'].get('Gas'), dtype = np.bool)
 
-    return cop, S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords
+
+    return S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords, S_ap, G_ap
 
 
 def get_len(Length):
@@ -140,28 +143,24 @@ def get_len(Length):
     return begin, end
 
 
-def get_ZLOS(jj, req_coords, cop, G_coords, G_mass, G_Z, G_sml, gbegin, gend, lkernel, kbins, sbegin=[], send=[], sel_dist=0.03, Stars=True):
+def get_ZLOS(jj, req_coords, G_coords, G_mass, G_Z, G_sml, gbegin, gend, lkernel, kbins, G_ap, S_ap=[], sbegin=[], send=[], Stars=True):
 
 
     if Stars:
-        this_coords = req_coords[sbegin[jj]:send[jj]]
-        s_ok = norm(this_coords-cop[jj],axis=1)<=sel_dist
-        this_coords = this_coords[s_ok]
+        this_coords = req_coords[sbegin[jj]:send[jj]][S_ap[sbegin[jj]:send[jj]]]
         req_func = partial(get_S_LOS)
     else:
         this_coords = req_coords[jj]
         req_func = partial(get_BH_LOS)
 
 
-    this_gcoords = G_coords[gbegin[jj]:gend[jj]]
-
-    this_gmass = G_mass[gbegin[jj]:gend[jj]]
-    this_gZ = G_Z[gbegin[jj]:gend[jj]]
-    this_gsml = G_sml[gbegin[jj]:gend[jj]]
-    g_ok = norm(this_gcoords-cop[jj],axis=1)<=sel_dist
+    this_gcoords = G_coords[gbegin[jj]:gend[jj]][G_ap[gbegin[jj]:gend[jj]]]
+    this_gmass = G_mass[gbegin[jj]:gend[jj]][G_ap[gbegin[jj]:gend[jj]]]
+    this_gZ = G_Z[gbegin[jj]:gend[jj]][G_ap[gbegin[jj]:gend[jj]]]
+    this_gsml = G_sml[gbegin[jj]:gend[jj]][G_ap[gbegin[jj]:gend[jj]]]
 
 
-    Z_los_SD = req_func(this_coords, this_gcoords[g_ok], this_gmass[g_ok], this_gZ[g_ok], this_gsml[g_ok], lkernel, kbins)*conv
+    Z_los_SD = req_func(this_coords, this_gcoords, this_gmass, this_gZ, this_gsml, lkernel, kbins)*conv
 
     return Z_los_SD
 
@@ -176,6 +175,10 @@ if __name__ == "__main__":
     lkernel = kinp['kernel']
     header = kinp['header']
     kbins = header.item()['bins']
+
+    aperture = 30
+    aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
+    _ap = np.where(aperture_array==aperture)[0]
 
     #For galaxies in region `num` and snap = tag
     num = str(ii)
@@ -197,7 +200,8 @@ if __name__ == "__main__":
     fl = flares.flares(fname = filename,sim_type = sim_type)
 
 
-    cop, S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords = get_data(num, tag, inp=inp, data_folder=data_folder)
+    S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords, S_ap, G_ap = get_data(num, tag, inp=inp, data_folder=data_folder)
+    S_ap, G_ap = S_ap[_ap][0], G_ap[_ap][0]
 
     if len(S_len)==0:
         print (F"No data to write in region {num} for tag {tag}")
@@ -209,7 +213,6 @@ if __name__ == "__main__":
         S_coords=S_coords.T/(1+z)
         G_coords=G_coords.T/(1+z)
         BH_coords=BH_coords.T/(1+z)
-        cop=cop.T/(1+z)
 
         sbegin, send = get_len(S_len)
         gbegin, gend = get_len(G_len)
@@ -220,11 +223,11 @@ if __name__ == "__main__":
         pool = schwimmbad.MultiPool(processes=4)
 
 
-        calc_Zlos = partial(get_ZLOS, req_coords=S_coords, cop=cop, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, sbegin=sbegin, send=send)
+        calc_Zlos = partial(get_ZLOS, req_coords=S_coords, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, G_ap=G_ap, S_ap=S_ap, sbegin=sbegin, send=send)
         S_los = np.concatenate(np.array(list(pool.map(calc_Zlos, \
                                  np.arange(0,len(sbegin), dtype=np.int64)))))
 
-        calc_Zlos = partial(get_ZLOS, req_coords=BH_coords, cop=cop, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, Stars=False)
+        calc_Zlos = partial(get_ZLOS, req_coords=BH_coords, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, G_ap=G_ap, Stars=False)
         BH_los = np.array(list(pool.map(calc_Zlos, \
                             np.arange(0, len(BH_coords), dtype=np.int64))))
 
@@ -236,9 +239,11 @@ if __name__ == "__main__":
 
     print(F"Wrting out line-of-sight metal density of {tag} to {filename}")
 
-    fl.create_dataset(S_los, 'S_los', '{}/Particle'.format(tag),
-        desc = 'Star particle line-of-sight metal column density along the z-axis',
+    out_slos = np.zeros(len(S_coords))
+    out_slos[S_ap] = S_los
+    fl.create_dataset(out_slos, 'S_los', '{}/Particle'.format(tag),
+        desc = F'Star particle line-of-sight metal column density along the z-axis within {aperture} pkpc',
         unit = 'Msun/pc^2', overwrite=True)
 
     fl.create_dataset(BH_los, 'BH_los', '{}/Particle'.format(tag),
-        desc = 'BH particle line-of-sight metal column density along the z-axis', unit = 'Msun/pc^2', overwrite=True)
+        desc = F'BH particle line-of-sight metal column density along the z-axis within {aperture} pkpc', unit = 'Msun/pc^2', overwrite=True)

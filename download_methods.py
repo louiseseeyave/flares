@@ -639,7 +639,6 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
 
     if inp == 'FLARES':
         sim_type = inp
-        num = "%02d"%int(num)
         sim = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
     elif (inp == 'REF') or (inp == 'AGNdT9'):
         sim = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
@@ -656,10 +655,11 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
         G_len = np.array(hf[F'{tag}/Galaxy'].get('G_Length'), dtype = np.int64)
         COP = np.array(hf[F'{tag}/Galaxy'].get('COP'), dtype = np.float64) * a
 
-        # S_mass = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)
-        S_mass = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)
+        S_mass = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)
+        # S_mass = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)
         S_age = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64)*1e3 #Age is in Gyr, so converting the array to Myr
         S_coods = np.array(hf[F'{tag}/Particle'].get('S_Coordinates'), dtype = np.float64) * a
+        G_coods = np.array(hf[F'{tag}/Particle'].get('G_Coordinates'), dtype = np.float64) * a
 
 
     begin = np.zeros(len(S_len), dtype = np.int64)
@@ -667,8 +667,15 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
     begin[1:] = np.cumsum(S_len)[:-1]
     end = np.cumsum(S_len)
 
+    gbegin = np.zeros(len(G_len), dtype = np.int64)
+    gend = np.zeros(len(G_len), dtype = np.int64)
+    gbegin[1:] = np.cumsum(G_len)[:-1]
+    gend = np.cumsum(G_len)
+
     SFR = {_ap: {_t: np.zeros(len(begin)) for _t in t} for _ap in aperture_size}
     Mstar = {_ap: np.zeros(len(begin)) for _ap in aperture_size}
+    S_ap_bool = np.zeros((len(aperture_size),len(S_coods.T)), dtype=np.bool)
+    G_ap_bool = np.zeros((len(aperture_size),len(G_coods.T)), dtype=np.bool)
 
     for jj, kk in enumerate(begin):
 
@@ -679,9 +686,14 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
         this_cood = S_coods[:,begin[jj]:end[jj]]
         this_mass = S_mass[begin[jj]:end[jj]]
 
+        this_gcood = G_coods[:,gbegin[jj]:gend[jj]]
+
         ## filter by age and aperture
-        for _ap in aperture_size:
+        for ll, _ap in enumerate(aperture_size):
             aperture_mask = (cdist(this_cood.T, np.array([COP[:,jj]])) < _ap * 1e-3)[:,0]
+            # print (np.shape(S_ap_bool[_ap][begin[jj]:end[jj]]), np.shape(aperture_mask), begin[jj]-end[jj])
+            S_ap_bool[ll][begin[jj]:end[jj]] = aperture_mask
+            G_ap_bool[ll][gbegin[jj]:gend[jj]] = (cdist(this_gcood.T, np.array([COP[:,jj]])) < _ap * 1e-3)[:,0]
 
             if np.sum(aperture_mask) > 0:
                 Mstar[_ap][jj] = np.sum(this_mass[aperture_mask])
@@ -693,7 +705,7 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
                 if len(ok) > 0:
                     SFR[_ap][_t][jj] = np.sum(this_mass[ok])/(_t*1e6) * 1e10
 
-    return SFR, Mstar
+    return SFR, Mstar, S_ap_bool, G_ap_bool
 
 
 def get_aperture_inst_SFR(num, tag, aperture_size = 30, inp = 'FLARES', data_folder = 'data/'):
