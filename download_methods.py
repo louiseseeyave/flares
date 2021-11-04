@@ -508,7 +508,7 @@ def extract_info(num, tag, inp='FLARES'):
 
 
     return ok_centrals, indices, sgrpno, grpno, cop, dnum, snum, gnum, dindex, sindex, gindex, bhindex, bh_mass
-##End of function `extract_info`
+## End of function `extract_info`
 
 
 def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'Galaxy', inp='FLARES', data_folder = 'data/', verbose = False, overwrite=False):
@@ -814,5 +814,5 @@ if __name__ == "__main__":
         save_to_hdf5(num, tag, snum, 'S_Length', 'Number of star particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
         save_to_hdf5(num, tag, gnum, 'G_Length', 'Number of gas particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
 
-        save_to_hdf5(num, tag, cop.T, 'COP', desc = 'Number of gas particles', group='Galaxy', inp=inp, unit='cMpc', data_folder=data_folder, overwrite=True)
-        save_to_hdf5(num, tag, bh_mass, 'BH_Mass', desc = 'Mass of the most massive black hole in the subgroup', group='Galaxy', inp=inp, unit='1e10 Msun', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, cop.T, 'COP', desc = 'Number of gas particles', group='Galaxy', dtype='float64', inp=inp, unit='cMpc', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, bh_mass, 'BH_Mass', desc = 'Mass of the most massive black hole in the subgroup', dtype='float64', group='Galaxy', inp=inp, unit='1e10 Msun', data_folder=data_folder, overwrite=True)

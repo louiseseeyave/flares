@@ -49,9 +49,9 @@ def lum_write_out(num, tag, kappa, BC_fac, filters = flare.filters.TH[:-1], inp 
     lumBC = get_lum(num, 0, tag, BC_fac, filters = filters, LF = False, inp = inp, Type = 'Only-BC', extinction = extinction, data_folder = data_folder)
     lumatt = get_lum(num, kappa, tag, BC_fac, filters = filters, LF = False, inp = inp, Type = 'Total', log10t_BC =  log10t_BC, extinction = extinction, data_folder = data_folder)
 
-    print("Output array dimensions:",lumintr.shape, lumstell.shape, lumBC.shape, lumatt.shape)
+    # print("Output array dimensions:",lumintr.shape, lumstell.shape, lumBC.shape, lumatt.shape)
 
-    print(lumintr)
+    # print(lumintr)
 
     fl = flares.flares(fname = filename, sim_type = sim_type)
 
@@ -74,12 +74,12 @@ def lum_write_out(num, tag, kappa, BC_fac, filters = flare.filters.TH[:-1], inp 
 
         fl.create_dataset(values = lumBC[:,ii], name = F"{_filter}",
                           group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Luminosity/No_ISM",
-                          desc = F'Intrinsic (stellar + nebular) luminosity of the galaxy with BC attenuation in the {_filter} band with a birth cloud factor of {BC_fac} following {extinction} curve', 
+                          desc = F'Intrinsic (stellar + nebular) luminosity of the galaxy with BC attenuation in the {_filter} band with a birth cloud factor of {BC_fac} following {extinction} curve',
                           unit = "ergs/s/Hz", overwrite=True)
 
         fl.create_dataset(values = lumatt[:,ii], name = F"{_filter}",
                           group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Luminosity/DustModelI",
-                          desc = F"Dust corrected luminosity (using ModelI) of the galaxy in the {_filter} band with a birth cloud factor of {BC_fac} following {extinction} curve", 
+                          desc = F"Dust corrected luminosity (using ModelI) of the galaxy in the {_filter} band with a birth cloud factor of {BC_fac} following {extinction} curve",
                           unit = "ergs/s/Hz", overwrite=True)
 
 
@@ -181,7 +181,7 @@ def line_write_out(num, lines, tag, kappa, BC_fac, label, inp = 'FLARES', LF = F
             fl.create_dataset(values = out_lum, name = F"{line}/Luminosity",
             group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Lines/{label}",
             desc = F"Intrinsic line luminosity", unit = "ergs/s", overwrite=True)
-            
+
             fl.create_dataset(values = out_EW, name = F"{line}/EW",
             group = F"{tag}/Galaxy/BPASS_2.2.1/Chabrier300/Lines/{label}",
             desc = F"Intrinsic EW", unit = "Angstrom", overwrite=True)
@@ -265,16 +265,16 @@ if __name__ == "__main__":
     sim_type = get_simtype(inp)
     fl = flares.flares(fname = 'tmp', sim_type = sim_type)
     tags = fl.tags
-    print (num, tag, inp)
+    print (num, tag, inp, data_folder)
 
     if prop == 'Luminosity':
         print ("Calculating luminosities")
-        lum_write_out(num=num, tag = tag, kappa = kappa, BC_fac = BC_fac, inp = inp, data_folder = data_folder, filters=['FAKE.TH.FUV', 'FAKE.TH.NUV'])
+        lum_write_out(num=num, tag = tag, kappa = kappa, BC_fac = BC_fac, inp = inp, data_folder = data_folder, filters=flare.filters.TH[:-1])
 
     elif prop == 'Flux':
         print ("Calculating fluxes")
-        flux_write_out(num=num, tag = tag, kappa = kappa, BC_fac = BC_fac, 
-                       filters = flare.filters.ACS + flare.filters.WFC3NIR_W + flare.filters.IRAC + flare.filters.Euclid + flare.filters.Subaru + flare.filters.NIRCam + flare.filters.MIRI, 
+        flux_write_out(num=num, tag = tag, kappa = kappa, BC_fac = BC_fac,
+                       filters = flare.filters.ACS + flare.filters.WFC3NIR_W + flare.filters.IRAC + flare.filters.Euclid + flare.filters.Subaru + flare.filters.NIRCam + flare.filters.MIRI,
                        inp = inp, data_folder = data_folder)
 
     elif prop == 'Lines':

@@ -10,7 +10,6 @@ import pandas as pd
 
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname("__file__"), '..')))
 from functools import partial
 import schwimmbad
 
@@ -59,7 +58,7 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
     S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
 
     if aperture=='default':
-        S_ap = S_ap[5][0]
+        S_ap = S_ap[5]
     else:
         aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
         ok = np.where(aperture_array==aperture)[0]
@@ -129,7 +128,8 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
             ValueError(F"Undefined Type {Type}")
 
 
-        Lnu         = models.generate_Lnu(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, fesc = fesc, log10t_BC = log10t_BC) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+        Lnu         = models.generate_Lnu(model = model, F = F, Masses = Masses, Ages = Ages, Metallicities = Metallicities, tauVs_ISM = tauVs_ISM, tauVs_BC = tauVs_BC, fesc = fesc, log10t_BC = log10t_BC) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+
         Lums[jj]    = list(Lnu.values())
 
     return Lums
@@ -141,7 +141,7 @@ def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters 
     S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
 
     if aperture=='default':
-        S_ap = S_ap[5][0]
+        S_ap = S_ap[5]
     else:
         aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
         ok = np.where(aperture_array==aperture)[0]
@@ -149,9 +149,9 @@ def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters 
 
 
     if np.isscalar(filters):
-        Lums = np.zeros(len(begin), dtype = np.float64)
+        Fnus = np.zeros(len(begin), dtype = np.float64)
     else:
-        Lums = np.zeros((len(begin), len(filters)), dtype = np.float64)
+        Fnus = np.zeros((len(begin), len(filters)), dtype = np.float64)
 
     model = models.define_model(F'BPASSv2.2.1.binary/{IMF}') # DEFINE SED GRID -
     if extinction == 'default':
@@ -210,7 +210,7 @@ def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters 
         else:
             ValueError(F"Undefined Type {Type}")
 
-        Fnu         = models.generate_Fnu(model, Masses, Ages, Metallicities, tauVs_ISM, tauVs_BC, F, fesc = fesc, log10t_BC = log10t_BC) # --- calculate rest-frame flux of each object in nJy
+        Fnu         = models.generate_Fnu(model = model, F = F, Masses = Masses, Ages = Ages, Metallicities = Metallicities, tauVs_ISM = tauVs_ISM, tauVs_BC = tauVs_BC, fesc = fesc, log10t_BC = log10t_BC) # --- calculate rest-frame flux of each object in nJy
 
         Fnus[jj]    = list(Fnu.values())
 
@@ -222,7 +222,7 @@ def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300
     S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
 
     if aperture=='default':
-        S_ap = S_ap[5][0]
+        S_ap = S_ap[5]
     else:
         aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
         ok = np.where(aperture_array==aperture)[0]
@@ -230,20 +230,20 @@ def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300
 
     # --- calculate intrinsic quantities
     if extinction == 'default':
-        model.dust_ISM  = ('simple', {'slope': -1.})    #Define dust curve for ISM
-        model.dust_BC   = ('simple', {'slope': -1.})     #Define dust curve for birth cloud component
+        dust_ISM  = ('simple', {'slope': -1.})    #Define dust curve for ISM
+        dust_BC   = ('simple', {'slope': -1.})     #Define dust curve for birth cloud component
     elif extinction == 'Calzetti':
-        model.dust_ISM  = ('Starburst_Calzetti2000', {''})
-        model.dust_BC   = ('Starburst_Calzetti2000', {''})
+        dust_ISM  = ('Starburst_Calzetti2000', {''})
+        dust_BC   = ('Starburst_Calzetti2000', {''})
     elif extinction == 'SMC':
-        model.dust_ISM  = ('SMC_Pei92', {''})
-        model.dust_BC   = ('SMC_Pei92', {''})
+        dust_ISM  = ('SMC_Pei92', {''})
+        dust_BC   = ('SMC_Pei92', {''})
     elif extinction == 'MW':
-        model.dust_ISM  = ('MW_Pei92', {''})
-        model.dust_BC   = ('MW_Pei92', {''})
+        dust_ISM  = ('MW_Pei92', {''})
+        dust_BC   = ('MW_Pei92', {''})
     elif extinction == 'N18':
-        model.dust_ISM  = ('MW_N18', {''})
-        model.dust_BC   = ('MW_N18', {''})
+        dust_ISM  = ('MW_N18', {''})
+        dust_BC   = ('MW_N18', {''})
     else: ValueError("Extinction type not recognised")
 
     lum = np.zeros(len(begin), dtype = np.float64)
@@ -293,12 +293,12 @@ def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300
     return lum, EW
 
 
-def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
 
     S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
 
     if aperture=='default':
-        S_ap = S_ap[5][0]
+        S_ap = S_ap[5]
     else:
         aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
         ok = np.where(aperture_array==aperture)[0]
@@ -354,10 +354,10 @@ def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10
 
 
 
-def get_lum(sim, kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, -16, 0.5), inp = 'FLARES', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def get_lum(sim, kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, -16, 0.5), inp = 'FLARES', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
 
     try:
-        Lums = lum(sim, kappa, tag, BC_fac = BC_fac, IMF=IMF, inp=inp, LF=LF, filters=filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder)
+        Lums = lum(sim, kappa, tag, BC_fac = BC_fac, IMF=IMF, inp=inp, LF=LF, filters=filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
 
     except Exception as e:
         Lums = np.ones(len(filters))*np.nan
@@ -373,7 +373,7 @@ def get_lum(sim, kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24,
 
 
 
-def get_lum_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, -16, 0.5), inp = 'FLARES', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def get_lum_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, -16, 0.5), inp = 'FLARES', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
 
     print (f"Getting luminosities for tag {tag} with kappa = {kappa}")
 
@@ -383,7 +383,7 @@ def get_lum_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, 
 
         sims = np.arange(0,len(weights))
 
-        calc = partial(get_lum, kappa = kappa, tag = tag, BC_fac = BC_fac, IMF = IMF, bins = bins, inp = inp, LF = LF, filters = filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder)
+        calc = partial(get_lum, kappa = kappa, tag = tag, BC_fac = BC_fac, IMF = IMF, bins = bins, inp = inp, LF = LF, filters = filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
 
         pool = schwimmbad.MultiPool(processes=8)
         dat = np.array(list(pool.map(calc, sims)))
@@ -403,15 +403,15 @@ def get_lum_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, 
             return dat
 
     else:
-        out = get_lum(00, kappa = kappa, tag = tag, BC_fac = BC_fac, IMF = IMF, bins = bins, inp = inp, LF = LF, filters = filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder)
+        out = get_lum(00, kappa = kappa, tag = tag, BC_fac = BC_fac, IMF = IMF, bins = bins, inp = inp, LF = LF, filters = filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
 
         return out
 
 
-def get_flux(sim, kappa, tag, BC_fac,  IMF = 'Chabrier_300', inp = 'FLARES', filters = flare.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def get_flux(sim, kappa, tag, BC_fac,  IMF = 'Chabrier_300', inp = 'FLARES', filters = flare.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
 
     try:
-        Fnus = flux(sim, kappa, tag, BC_fac = BC_fac, IMF=IMF, inp=inp, filters=filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder)
+        Fnus = flux(sim, kappa, tag, BC_fac = BC_fac, IMF=IMF, inp=inp, filters=filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
 
     except Exception as e:
         Fnus = np.ones(len(filters))*np.nan
@@ -419,7 +419,7 @@ def get_flux(sim, kappa, tag, BC_fac,  IMF = 'Chabrier_300', inp = 'FLARES', fil
 
     return Fnus
 
-def get_flux_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', inp = 'FLARES', filters = flare.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data'):
+def get_flux_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', inp = 'FLARES', filters = flare.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
 
     print (f"Getting fluxes for tag {tag} with kappa = {kappa}")
 
@@ -430,7 +430,7 @@ def get_flux_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', inp = 'FLARES', filte
 
         sims = np.arange(0,len(weights))
 
-        calc = partial(get_flux, kappa = kappa, tag = tag, BC_fac = BC_fac, IMF = IMF, inp = inp, filters = filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder)
+        calc = partial(get_flux, kappa = kappa, tag = tag, BC_fac = BC_fac, IMF = IMF, inp = inp, filters = filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
 
         pool = schwimmbad.MultiPool(processes=8)
         out = np.array(list(pool.map(calc, sims)))
@@ -438,6 +438,6 @@ def get_flux_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', inp = 'FLARES', filte
 
     else:
 
-        out = get_flux(00, kappa = kappa, tag = tag, BC_fac = BC_fac, IMF = IMF, inp = inp, filters = filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder)
+        out = get_flux(00, kappa = kappa, tag = tag, BC_fac = BC_fac, IMF = IMF, inp = inp, filters = filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
 
     return out
