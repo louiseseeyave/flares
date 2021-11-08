@@ -6,11 +6,11 @@ A python convenience module for working with FLARES data.
 
 - numpy
 - h5py
-- scipy 
+- scipy
 - [numba](https://numba.readthedocs.io/en/stable/user/installing.html)
 - schwimmbad
 - [eagle_IO](https://github.com/flaresimulations/eagle_IO)
-- [SynthObs](https://github.com/stephenmwilkins/SynthObs) 
+- [SynthObs](https://github.com/stephenmwilkins/SynthObs)
 
 ## Installation
 
@@ -37,7 +37,7 @@ You may need to update this location in `flares.py#L29` by changing the `self.di
 
 `flares.py` contains the `flares` class, which contains a lot of useful functionality for analysing the resims, such as the specified halos (`flares.halos`) and snapshots (`flares.tags`) you wish to analyse; these should be updated as new resims are completed.
 
-In order to make working with the data easier we typically download a subset of subhalo and particle arrays to a 'master' HDF5 file. 
+In order to make working with the data easier we typically download a subset of subhalo and particle arrays to a 'master' HDF5 file.
 This can then be used in place of the raw simulation outputs.
 It also typically includes other derived properties, such as stellar masses and SFRs within apertures, and forward modelled predictions for emission.
 Most user will typically use a master file that has already been created (please speak to one of the team to get access), however for reference below we specify how to create a master file from scratch.
@@ -47,9 +47,10 @@ Each bash submission script may require modifying for your particular architectu
 - We can then download subhalo properties, handled in `run_download_properties.cosma.sh`.  The required arrays can be defined in `req_arrays.txt`
 - If you wish to calculate emission from subhalos, you first need to calculate the line of sigh metal column density, handled in `run_calc_Zlos.cosma.sh`
 - You can then run `run_photometry.cosma.sh` to generate predicted emission. Within this script you can select whether you require fluxes, luminosities, full SEDs or just line information.
-- Finally, the outputs from each region can be combined using `combine_master_file.py` 
+- Photometric indices like the Balmer break, UV-continuum slope, etc are calculated on running `run_photometry_indices.cosma.sh`
+- Finally, the outputs from each region can be combined using `combine_master_file.py`
 
-Once this has completed you will have a single file `data/flares.hdf5` with the following (rough) data structure: `Resim_num/Property_type/Property`, where `Resim_num` is the number of resims (see [here](https://docs.google.com/spreadsheets/d/1NzQee05rNCml1YEKXuD8L9JOW5Noh8oj9K9bcS2RQlY/edit?usp=sharing)), `Property_type` can be either Galaxy (like stellar mass, sfr, etc) or Particle (individual properties of gas/stellar particles) and `Property` is the required property. 
+Once this has completed you will have a single file `data/flares.hdf5` with the following (rough) data structure: `Resim_num/Property_type/Property`, where `Resim_num` is the number of resims (see [here](https://docs.google.com/spreadsheets/d/1NzQee05rNCml1YEKXuD8L9JOW5Noh8oj9K9bcS2RQlY/edit?usp=sharing)), `Property_type` can be either Galaxy (like stellar mass, sfr, etc) or Particle (individual properties of gas/stellar particles) and `Property` is the required property.
 
 ### Example
 
@@ -82,7 +83,7 @@ halo = fl.halos
 tag = fl.tags[-1]
 volume = (4/3)*np.pi*(fl.radius**3)
 
-mstar = fl.load_dataset('Mstar_30', arr_type='Galaxy')
+mstar = fl.load_dataset('Mstar_aperture/Mstar_30', arr_type='Galaxy')*1e10
 df = pd.read_csv('weight_files/weights_grid.txt')
 weights = np.array(df['weights'])
 
@@ -97,7 +98,7 @@ for ii in range(len(weights)):
     tmp, bin_edges = np.histogram(np.log10(mstar[halo[ii]][tag]), bins = bins)
     hist+=tmp*weights[ii]
     err+=np.square(np.sqrt(tmp)*weights[ii])
-    
+
 smf = hist/(volume*binwidth)
 smf_err = np.sqrt(err)/(volume*binwidth)
 
@@ -131,7 +132,7 @@ fname = './data/flares.hdf5'
 num = '00'
 with h5py.File(fname, 'r') as hf:
     S_len = np.array(hf[num+'/'+tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
-    S_mass = np.array(hf[num+'/'+tag+'/Particle'].get('S_Mass'), dtype = np.float64)
+    S_mass = np.array(hf[num+'/'+tag+'/Particle'].get('S_Mass'), dtype = np.float64)*1e10
     S_Z = np.array(hf[num+'/'+tag+'/Particle'].get('S_Z'), dtype = np.float64)
     S_age = np.array(hf[num+'/'+tag+'/Particle'].get('S_Age'), dtype = np.float64)*1e3
 
@@ -140,7 +141,7 @@ end = np.zeros(len(S_len), dtype = np.int64)
 begin[1:] = np.cumsum(S_len)[:-1]
 end = np.cumsum(S_len)
 
-#Age of all particles belonging to first galaxy in resim region 'num'
+#Age in Myr of all particles belonging to first galaxy in resim region 'num'
 
 print (S_age[begin[0]:end[0]])
 ```
