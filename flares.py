@@ -53,8 +53,7 @@ class flares:
                                   '000_z015p000','001_z014p000','002_z013p000',
                                   '003_z012p000','004_z011p000','005_z010p000',
                                   '006_z009p000','007_z008p000','008_z007p000',
-                                  '009_z006p000','010_z005p000'
-                                  #,'011_z004p770'
+                                  '009_z006p000','010_z005p000','011_z004p770'
                                   ])
 
             self.zeds = [float(tag[5:].replace('p','.')) for tag in self.tags]
@@ -230,13 +229,13 @@ class flares:
         """
 
         for _prop in properties:
-            if _prop[:4] != 'prog': 
+            if _prop[:4] != 'prog':
                 raise ValueError('requested property, %s, not of "progenitor" type'%_prop)
 
-        return self.get_graph_properties(GroupNumber, SubGroupNumber, halo, tag, 
+        return self.get_graph_properties(GroupNumber, SubGroupNumber, halo, tag,
                                          properties, tree_type='prog')
-    
-        
+
+
     def get_descendants(self, GroupNumber, SubGroupNumber, halo, tag,
                         properties=['desc_group_ids','desc_subgroup_ids']):
         """
@@ -244,27 +243,27 @@ class flares:
         """
 
         for _prop in properties:
-            if _prop[:4] != 'desc': 
+            if _prop[:4] != 'desc':
                 raise ValueError('requested property, %s, not of "descendant" type'%_prop)
 
-        return self.get_graph_properties(GroupNumber, SubGroupNumber, halo, tag, 
+        return self.get_graph_properties(GroupNumber, SubGroupNumber, halo, tag,
                                          properties, tree_type='desc')
 
 
-    def get_graph_properties(self, GroupNumber, SubGroupNumber, halo, tag, 
+    def get_graph_properties(self, GroupNumber, SubGroupNumber, halo, tag,
                         properties=['prog_group_ids','prog_subgroup_ids'],
                         tree_type='prog'):
         """
         Method for getting graph properties of a given (sub)halo
         """
-        
+
         _fname = f"{self.graph_directory}/GEAGLE_{halo}/SubMgraph_{tag}.hdf5"
-        
+
         with h5py.File(_fname,'r') as f:
 
             _grp = f['SUBFIND_Group_IDs'][:]
             _sgrp = f['SUBFIND_SubGroup_IDs'][:]
-           
+
             # find index of halo in graph arrays
             _idx = np.where((_grp == GroupNumber) &\
                             (_sgrp == SubGroupNumber))
@@ -282,8 +281,8 @@ class flares:
             # get all progenitors
             output = {_prop: None for _prop in properties}
             for _prop in properties:
-                output[_prop] = self.get_link_data(f[_prop][:], 
-                                                   f[sindex][:][_idx][0], 
+                output[_prop] = self.get_link_data(f[_prop][:],
+                                                   f[sindex][:][_idx][0],
                                                    f[nstr][:][_idx][0])
 
         return output
