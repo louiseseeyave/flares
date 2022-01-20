@@ -23,7 +23,7 @@ from flare.photom import lum_to_M, M_to_lum
 import h5py
 
 
-def get_data(ii, tag, inp = 'FLARES', data_folder = 'data'):
+def get_data(ii, tag, inp = 'FLARES', data_folder = 'data', aperture = '30'):
 
     num = str(ii)
     if inp == 'FLARES':
@@ -42,7 +42,7 @@ def get_data(ii, tag, inp = 'FLARES', data_folder = 'data'):
         S_Z     = np.array(hf[tag+'/Particle'].get('S_Z_smooth'), dtype = np.float64)
         S_age   = np.array(hf[tag+'/Particle'].get('S_Age'), dtype = np.float64)*1e3
         S_los   = np.array(hf[tag+'/Particle'].get('S_los'), dtype = np.float64)
-        S_ap    = np.array(hf[tag+'/Particle/Apertures'].get('Star'), dtype = np.bool)
+        S_ap    = np.array(hf[tag+'/Particle/Apertures/Star'].get(F'{aperture}'), dtype = np.bool)
 
 
     begin       = np.zeros(len(S_len), dtype = np.int64)
@@ -53,17 +53,9 @@ def get_data(ii, tag, inp = 'FLARES', data_folder = 'data'):
     return S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM
 
 
-def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
+def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
 
-    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
-
-    if aperture=='default':
-        S_ap = S_ap[5]
-    else:
-        aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
-        ok = np.where(aperture_array==aperture)[0]
-        S_ap = S_ap[ok][0]
-
+    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder, aperture)
 
     if np.isscalar(filters):
         Lums = np.zeros(len(begin), dtype = np.float64)
@@ -136,17 +128,9 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
 
 
 
-def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters = flare.filters.NIRCam_W, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
+def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters = flare.filters.NIRCam_W, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
 
-    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
-
-    if aperture=='default':
-        S_ap = S_ap[5]
-    else:
-        aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
-        ok = np.where(aperture_array==aperture)[0]
-        S_ap = S_ap[ok][0]
-
+    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder, aperture)
 
     if np.isscalar(filters):
         Fnus = np.zeros(len(begin), dtype = np.float64)
@@ -217,16 +201,9 @@ def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters 
     return Fnus
 
 
-def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = False, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
+def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = False, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
 
-    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
-
-    if aperture=='default':
-        S_ap = S_ap[5]
-    else:
-        aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
-        ok = np.where(aperture_array==aperture)[0]
-        S_ap = S_ap[ok][0]
+    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder, aperture)
 
     # --- calculate intrinsic quantities
     if extinction == 'default':
@@ -293,16 +270,9 @@ def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300
     return lum, EW
 
 
-def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
+def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
 
-    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder)
-
-    if aperture=='default':
-        S_ap = S_ap[5]
-    else:
-        aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
-        ok = np.where(aperture_array==aperture)[0]
-        S_ap = S_ap[ok][0]
+    S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder, aperture)
 
     model = models.define_model(F'BPASSv2.2.1.binary/{IMF}') # DEFINE SED GRID -
     # --- calculate intrinsic quantities
@@ -354,7 +324,7 @@ def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10
 
 
 
-def get_lum(sim, kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, -16, 0.5), inp = 'FLARES', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
+def get_lum(sim, kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, -16, 0.5), inp = 'FLARES', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
 
     try:
         Lums = lum(sim, kappa, tag, BC_fac = BC_fac, IMF=IMF, inp=inp, LF=LF, filters=filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
@@ -373,7 +343,7 @@ def get_lum(sim, kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24,
 
 
 
-def get_lum_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, -16, 0.5), inp = 'FLARES', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
+def get_lum_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, -16, 0.5), inp = 'FLARES', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
 
     print (f"Getting luminosities for tag {tag} with kappa = {kappa}")
 
@@ -408,7 +378,7 @@ def get_lum_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, 
         return out
 
 
-def get_flux(sim, kappa, tag, BC_fac,  IMF = 'Chabrier_300', inp = 'FLARES', filters = flare.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
+def get_flux(sim, kappa, tag, BC_fac,  IMF = 'Chabrier_300', inp = 'FLARES', filters = flare.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
 
     try:
         Fnus = flux(sim, kappa, tag, BC_fac = BC_fac, IMF=IMF, inp=inp, filters=filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
@@ -419,7 +389,7 @@ def get_flux(sim, kappa, tag, BC_fac,  IMF = 'Chabrier_300', inp = 'FLARES', fil
 
     return Fnus
 
-def get_flux_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', inp = 'FLARES', filters = flare.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
+def get_flux_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', inp = 'FLARES', filters = flare.filters.NIRCam, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
 
     print (f"Getting fluxes for tag {tag} with kappa = {kappa}")
 

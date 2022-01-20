@@ -71,7 +71,7 @@ if __name__ == "__main__":
     SFR, Mstar, S_ap_bool, G_ap_bool = get_recent_SFR(num,tag,t=timescales,aperture_size=aperture_sizes,inp=inp, data_folder=data_folder)
     inst_SFR = get_aperture_inst_SFR(num,tag,aperture_size=aperture_sizes,inp=inp, data_folder=data_folder)
 
-    for _ap in aperture_sizes[:-1]:
+    for jj,_ap in enumerate(aperture_sizes[:-1]):
         save_to_hdf5(num, tag, Mstar[_ap], f'Mstar_{_ap}',
                      f'Stellar mass contained within a {_ap} pkpc aperture',
                      group=f'Galaxy/Mstar_aperture', inp=inp, unit='1E10 Msun', data_folder=data_folder, overwrite=True)
@@ -79,6 +79,13 @@ if __name__ == "__main__":
         save_to_hdf5(num, tag, inst_SFR[_ap], f'SFR_inst',
                      f'Instantaneous star formation rate contained within a {_ap} pkpc aperture',
                      group=f'Galaxy/SFR_aperture/SFR_{_ap}', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
+
+         ## save aperture boolean selection
+         save_to_hdf5(num, tag, S_ap_bool[jj], F'{_ap}',
+                      f'Boolean array of star particles within {_ap} pkpc aperture', group='Particle/Apertures/Star', inp=inp, unit='bool', data_folder=data_folder, overwrite=True)
+
+         save_to_hdf5(num, tag, G_ap_bool[jj], F'{_ap}',
+                       f'Boolean array of gas particles within {_ap} pkpc aperture', group='Particle/Apertures/Gas', inp=inp, unit='bool', data_folder=data_folder, overwrite=True)
 
         for _t in timescales:
             save_to_hdf5(num, tag, SFR[_ap][_t], f'SFR_{_t}_Myr',
@@ -98,11 +105,11 @@ if __name__ == "__main__":
                      group='Galaxy/SFR_total', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
 
     ## save aperture boolean selection
-    save_to_hdf5(num, tag, S_ap_bool[:-1], 'Star',
-                 f'Boolean array of star particles within 1, 3, 5, 10, 20, 30, 40, 50, 70, 100 pkpc aperture', group='Particle/Apertures', inp=inp, unit='Boolean', data_folder=data_folder, overwrite=True)
-
-    save_to_hdf5(num, tag, G_ap_bool[:-1], 'Gas',
-                  f'Boolean array of gas particles within 1, 3, 5, 10, 20, 30, 40, 50, 70, 100 pkpc aperture', group='Particle/Apertures', inp=inp, unit='Boolean', data_folder=data_folder, overwrite=True)
+    # save_to_hdf5(num, tag, S_ap_bool[:-1], 'Star',
+    #              f'Boolean array of star particles within 1, 3, 5, 10, 20, 30, 40, 50, 70, 100 pkpc aperture', group='Particle/Apertures', inp=inp, unit='Boolean', data_folder=data_folder, overwrite=True)
+    #
+    # save_to_hdf5(num, tag, G_ap_bool[:-1], 'Gas',
+    #               f'Boolean array of gas particles within 1, 3, 5, 10, 20, 30, 40, 50, 70, 100 pkpc aperture', group='Particle/Apertures', inp=inp, unit='Boolean', data_folder=data_folder, overwrite=True)
 
 
 

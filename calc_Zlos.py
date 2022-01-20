@@ -99,7 +99,7 @@ def get_BH_LOS(bh_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
 
     return Z_los_SD
 
-def get_data(ii, tag, inp = 'FLARES', data_folder='data/'):
+def get_data(ii, tag, inp = 'FLARES', data_folder='data/', aperture=30):
 
     num = str(ii)
     if inp == 'FLARES':
@@ -126,8 +126,8 @@ def get_data(ii, tag, inp = 'FLARES', data_folder='data/'):
         G_Z = np.array(hf[tag+'/Particle'].get('G_Z_smooth'), dtype = np.float64)
         BH_coords = np.array(hf[tag+'/Galaxy'].get('BH_Coordinates'), dtype = np.float64)
 
-        S_ap = np.array(hf[tag+'/Particle/Apertures'].get('Star'), dtype = np.bool)
-        G_ap = np.array(hf[tag+'/Particle/Apertures'].get('Gas'), dtype = np.bool)
+        S_ap = np.array(hf[tag+'/Particle/Apertures/Star'].get(F'{aperture}'), dtype = np.bool)
+        G_ap = np.array(hf[tag+'/Particle/Apertures/Gas'].get(F'{aperture}'), dtype = np.bool)
 
 
     return S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords, S_ap, G_ap
@@ -177,8 +177,6 @@ if __name__ == "__main__":
     kbins = header.item()['bins']
 
     aperture = 30
-    aperture_array = np.array([1, 3, 5, 10, 20, 30, 40, 50, 70, 100])
-    _ap = np.where(aperture_array==aperture)[0]
 
     #For galaxies in region `num` and snap = tag
     num = str(ii)
@@ -200,8 +198,7 @@ if __name__ == "__main__":
     fl = flares.flares(fname = filename,sim_type = sim_type)
 
 
-    S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords, S_ap, G_ap = get_data(num, tag, inp=inp, data_folder=data_folder)
-    S_ap, G_ap = S_ap[_ap][0], G_ap[_ap][0]
+    S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords, S_ap, G_ap = get_data(num, tag, inp=inp, data_folder=data_folder, aperture=aperture)
 
     if len(S_len)==0:
         print (F"No data to write in region {num} for tag {tag}")
@@ -220,7 +217,7 @@ if __name__ == "__main__":
         # print("calc shapes", sbegin.shape, send.shape, gbegin.shape, gend.shape)
 
         start = timeit.default_timer()
-        pool = schwimmbad.MultiPool(processes=4)
+        pool = schwimmbad.SerialPool()
 
 
         calc_Zlos = partial(get_ZLOS, req_coords=S_coords, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, G_ap=G_ap, S_ap=S_ap, sbegin=sbegin, send=send)

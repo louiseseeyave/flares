@@ -1,3 +1,4 @@
+import pandas as pd
 import h5py
 import flares
 
@@ -10,13 +11,15 @@ in_dir = './data/'
 
 with h5py.File('./data/flares.hdf5','a') as outfile:
 
-    for halo in fl.halos:
+    for ii, halo in enumerate(fl.halos):
         print(halo)
 
-        fl.create_group(F'{halo}')
+        fl.create_group(halo)
 
         hdr = df.iloc[ii:ii+1].to_dict('list')
-        fl.create_header(F'{halo}/Header', hdr)
+        for key, value in hdr.items():
+            outfile[halo].attrs[key] = value[0]
+
 
         infile = h5py.File('%s/FLARES_%s_sp_info.hdf5'%(in_dir,halo),'r')
 
