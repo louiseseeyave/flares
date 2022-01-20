@@ -72,13 +72,13 @@ if __name__ == "__main__":
     inst_SFR = get_aperture_inst_SFR(num,tag,aperture_size=aperture_sizes,inp=inp, data_folder=data_folder)
 
     for jj,_ap in enumerate(aperture_sizes[:-1]):
-        save_to_hdf5(num, tag, Mstar[_ap], f'Mstar_{_ap}',
+        save_to_hdf5(num, tag, Mstar[_ap], f'{_ap}',
                      f'Stellar mass contained within a {_ap} pkpc aperture',
                      group=f'Galaxy/Mstar_aperture', inp=inp, unit='1E10 Msun', data_folder=data_folder, overwrite=True)
 
         save_to_hdf5(num, tag, inst_SFR[_ap], f'SFR_inst',
                      f'Instantaneous star formation rate contained within a {_ap} pkpc aperture',
-                     group=f'Galaxy/SFR_aperture/SFR_{_ap}', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
+                     group=f'Galaxy/SFR_aperture/{_ap}', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
 
          ## save aperture boolean selection
          save_to_hdf5(num, tag, S_ap_bool[jj], F'{_ap}',
@@ -88,19 +88,19 @@ if __name__ == "__main__":
                        f'Boolean array of gas particles within {_ap} pkpc aperture', group='Particle/Apertures/Gas', inp=inp, unit='bool', data_folder=data_folder, overwrite=True)
 
         for _t in timescales:
-            save_to_hdf5(num, tag, SFR[_ap][_t], f'SFR_{_t}_Myr',
+            save_to_hdf5(num, tag, SFR[_ap][_t], f'{_t}Myr',
                          f'Star formation rate measured over the past {_t} Myr in a {_ap} pkpc aperture',
-                 group=f'Galaxy/SFR_aperture/SFR_{_ap}', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
+                 group=f'Galaxy/SFR_aperture/{_ap}', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
 
 
     ## save total SFR
     _ap = 1e4
-    save_to_hdf5(num, tag, inst_SFR[_ap], f'SFR_inst',
+    save_to_hdf5(num, tag, inst_SFR[_ap], f'inst',
                  f'Total instantaneous star formation rate in the subhalo',
                  group='Galaxy/SFR_total', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
 
     for _t in timescales:
-        save_to_hdf5(num, tag, SFR[_ap][_t], f'SFR_{_t}_Myr',
+        save_to_hdf5(num, tag, SFR[_ap][_t], f'{_t}Myr',
                      f'Total star formation rate measured over the past {_t} Myr in the subhalo',
                      group='Galaxy/SFR_total', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
 
