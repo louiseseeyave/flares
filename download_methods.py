@@ -324,6 +324,7 @@ def extract_info(num, tag, inp='FLARES'):
             s_ok_sel = s_ok[norm(tmp,axis=1)<=sel_dist]
         else:
             s_ok = np.array([])
+            s_ok_sel = np.array([])
 
         if BH:
             bh_ok = np.where((bh_sgrpn-sgrpno[jj]==0) & (bh_grpn-grpno[jj]==0))[0]
@@ -542,7 +543,7 @@ def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'G
         ogrp += os.sep + grp
         fl.create_group(f'{tag}/{ogrp}')
 
-    if unit is not None:
+    if unit is None:
         fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc, overwrite=overwrite)
     else:
         fl.create_dataset(dset, name, f'{tag}/{group}', dtype = dtype, desc = desc, unit = unit, overwrite=overwrite)
@@ -655,8 +656,8 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
         G_len = np.array(hf[F'{tag}/Galaxy'].get('G_Length'), dtype = np.int64)
         COP = np.array(hf[F'{tag}/Galaxy'].get('COP'), dtype = np.float64) * a
 
-        S_mass = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)
-        # S_mass = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)
+        S_massinitial = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)
+        S_mass = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)
         S_age = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64)*1e3 #Age is in Gyr, so converting the array to Myr
         S_coods = np.array(hf[F'{tag}/Particle'].get('S_Coordinates'), dtype = np.float64) * a
         G_coods = np.array(hf[F'{tag}/Particle'].get('G_Coordinates'), dtype = np.float64) * a
@@ -685,6 +686,7 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
         this_age = S_age[begin[jj]:end[jj]]
         this_cood = S_coods[:,begin[jj]:end[jj]]
         this_mass = S_mass[begin[jj]:end[jj]]
+        this_massinitial = S_massinitial[begin[jj]:end[jj]]
 
         this_gcood = G_coods[:,gbegin[jj]:gend[jj]]
 
@@ -703,7 +705,7 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
                 ok = np.where(aperture_mask & age_mask)[0]
 
                 if len(ok) > 0:
-                    SFR[_ap][_t][jj] = np.sum(this_mass[ok])/(_t*1e6) * 1e10
+                    SFR[_ap][_t][jj] = np.sum(this_massinitial[ok])/(_t*1e6) * 1e10
 
     return SFR, Mstar, S_ap_bool, G_ap_bool
 

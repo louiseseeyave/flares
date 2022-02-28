@@ -24,7 +24,7 @@ def get_simtype(inp):
 
     return sim_type
 
-def lum_write_out(num, tag, kappa, BC_fac, filters = flare.filters.TH[:-1], inp = 'FLARES', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
+def lum_write_out(num, tag, kappa, BC_fac, filters = flare.filters.TH[:-1], inp = 'FLARES', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
 
 
     if inp == 'FLARES':
@@ -83,7 +83,7 @@ def lum_write_out(num, tag, kappa, BC_fac, filters = flare.filters.TH[:-1], inp 
                           unit = "ergs/s/Hz", overwrite=True)
 
 
-def flux_write_out(num, tag, kappa, BC_fac, filters = flare.filters.ACS, inp = 'FLARES', extinction = 'default', data_folder = 'data', aperture='default'):
+def flux_write_out(num, tag, kappa, BC_fac, filters = flare.filters.ACS, inp = 'FLARES', extinction = 'default', data_folder = 'data', aperture='30'):
 
     if inp == 'FLARES':
         num = str(num)
@@ -133,7 +133,7 @@ def flux_write_out(num, tag, kappa, BC_fac, filters = flare.filters.ACS, inp = '
         desc = F"Dust corrected flux (using ModelI) of the galaxy in the {_filter} with a birth cloud factor of {BC_fac} following {extinction} curve", unit = "nJy", overwrite=True)
 
 
-def line_write_out(num, lines, tag, kappa, BC_fac, label, inp = 'FLARES', LF = False, log10t_BC = 7., Type = 'Total', extinction = 'default', data_folder = 'data', aperture='default'):
+def line_write_out(num, lines, tag, kappa, BC_fac, label, inp = 'FLARES', LF = False, log10t_BC = 7., Type = 'Total', extinction = 'default', data_folder = 'data', aperture='30'):
 
     if inp == 'FLARES':
         num = str(num)
@@ -199,7 +199,7 @@ def line_write_out(num, lines, tag, kappa, BC_fac, label, inp = 'FLARES', LF = F
             desc = F"Intrinsic EW with birth cloud factor {BC_fac} following {extinction} curve", unit = "Angstrom", overwrite=True)
 
 
-def sed_write_out(num, tag, kappa, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='default'):
+def sed_write_out(num, tag, kappa, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
 
     if inp == 'FLARES':
         num = str(num)
@@ -272,8 +272,12 @@ if __name__ == "__main__":
     tag = str(tag)
     data_folder = str(data_folder)
 
+    #Parameters used
     BC_fac = 1.
     kappa = 0.0795
+    aperture = '30'
+
+
     sim_type = get_simtype(inp)
     fl = flares.flares(fname = 'tmp', sim_type = sim_type)
     tags = fl.tags
@@ -281,26 +285,26 @@ if __name__ == "__main__":
 
     if prop == 'Luminosity':
         print ("Calculating luminosities")
-        lum_write_out(num=num, tag = tag, kappa = kappa, BC_fac = BC_fac, inp = inp, data_folder = data_folder, filters=flare.filters.TH[:-1])
+        lum_write_out(num=num, tag = tag, kappa = kappa, BC_fac = BC_fac, inp = inp, data_folder = data_folder, filters=flare.filters.TH[:-1], aperture=aperture)
 
     elif prop == 'Flux':
         print ("Calculating fluxes")
         flux_write_out(num=num, tag = tag, kappa = kappa, BC_fac = BC_fac,
                        filters = flare.filters.ACS + flare.filters.WFC3NIR_W + flare.filters.IRAC + flare.filters.Euclid + flare.filters.Subaru + flare.filters.NIRCam + flare.filters.MIRI,
-                       inp = inp, data_folder = data_folder)
+                       inp = inp, data_folder = data_folder, aperture=aperture)
 
     elif prop == 'Lines':
         print ("Calculating line luminosities and EW")
         m=models.EmissionLines("BPASSv2.2.1.binary/Chabrier_300", verbose=False)
         lines = m.lines
 
-        line_write_out(num, lines, tag = tag, kappa = kappa, BC_fac = BC_fac, Type = 'Total', inp = inp, LF = False, log10t_BC = 7., label = 'Total', data_folder = data_folder)
-        line_write_out(num, lines, tag = tag, kappa = kappa, BC_fac = BC_fac, Type = 'Intrinsic', inp = inp, LF = False, log10t_BC = 7., label = 'Intrinsic', data_folder = data_folder)
-        line_write_out(num, lines, tag = tag, kappa = kappa, BC_fac = BC_fac, Type = 'Only-BC', inp = inp, LF = False, log10t_BC = 7., label = 'No_ISM', data_folder = data_folder)
+        line_write_out(num, lines, tag = tag, kappa = kappa, BC_fac = BC_fac, Type = 'Total', inp = inp, LF = False, log10t_BC = 7., label = 'Total', data_folder = data_folder, aperture=aperture)
+        line_write_out(num, lines, tag = tag, kappa = kappa, BC_fac = BC_fac, Type = 'Intrinsic', inp = inp, LF = False, log10t_BC = 7., label = 'Intrinsic', data_folder = data_folder, aperture=aperture)
+        line_write_out(num, lines, tag = tag, kappa = kappa, BC_fac = BC_fac, Type = 'Only-BC', inp = inp, LF = False, log10t_BC = 7., label = 'No_ISM', data_folder = data_folder, aperture=aperture)
 
     elif prop == 'SED':
         print ("Calculating SEDs")
-        sed_write_out(num, tag, kappa, BC_fac, inp = inp, IMF = 'Chabrier_300', log10t_BC = 7., data_folder = data_folder)
+        sed_write_out(num, tag, kappa, BC_fac, inp = inp, IMF = 'Chabrier_300', log10t_BC = 7., data_folder = data_folder, aperture=aperture)
 
     else:
         ValueError(F"No input of type {prop}")
