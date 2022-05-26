@@ -447,13 +447,13 @@ class flares:
             #dset.close()
 
 
-    def get_particles(self, p_str, length_array, halo='00',tag='005_z010p000', verbose=False):
+    def get_particles(self, p_str, length_str, halo='00',tag='005_z010p000', verbose=False):
         """
         Grab particle properties for the given halo/tag and the given datasets
 
         Args:
             p_str (str or list) particle dataset string, or a list / tuple of these strings
-            length_array (array or list) lengths of particle arrays
+            length_str (str) galaxy dataset of lengths of particle arrays
             halo (str)
             tag (str)
             verbose (bool)
@@ -463,17 +463,13 @@ class flares:
         """
         if verbose: print("Getting particle array lengths...")
         # get particle array lengths for each galaxy
-        # S_length = self.load_dataset('S_Length',arr_type='Galaxy')
-        # subset halo/tag
-        # S_len = S_length[halo][tag]
-        S_len = length_array
+        p_len = self._load_single_dataset(length_str, halo, tag, arr_type='Galaxy')
 
-        if verbose: print("Finding array indices...")
-        # find beginning:end indexes for each galaxy
-        begin = np.zeros(len(S_len), dtype = np.int64)
-        end = np.zeros(len(S_len), dtype = np.int64)
-        begin[1:] = np.cumsum(S_len)[:-1]
-        end = np.cumsum(S_len)
+        if verbose: print("Finding array indices...") # find beginning:end indexes for each galaxy
+        begin = np.zeros(len(p_len), dtype = np.int64)
+        end = np.zeros(len(p_len), dtype = np.int64)
+        begin[1:] = np.cumsum(p_len)[:-1]
+        end = np.cumsum(p_len)
 
         if verbose: print("Getting particle data...")
         _p = {}
@@ -485,12 +481,11 @@ class flares:
 
 
         if verbose: print("Subsetting particles for each galaxy...")
-        # output dictionary of particle properties
-        out = {}
-        for i in np.arange(len(S_len)): # loop through gals
+        out = {}    ## output dictionary of particle properties
+        for i in np.arange(len(p_len)): # loop through gals
             out[i] = {}
 
-            # if more than one property, loop through them
+            ## if more than one property, loop through them
             if type(p_str) in [list,tuple]:
                 for _str in p_str:
                     out[i][_str] = _p[_str][begin[i]:end[i]]
