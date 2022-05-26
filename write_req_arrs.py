@@ -8,7 +8,7 @@ from astropy import constants as const
 import eagle_IO.eagle_IO as E
 import flares
 
-
+h=0.6777
 
 if __name__ == "__main__":
 
@@ -57,7 +57,6 @@ if __name__ == "__main__":
         sindex = np.array(hf[tag+'/Particle'].get('S_Index'), dtype = np.int64)
         gindex = np.array(hf[tag+'/Particle'].get('G_Index'), dtype = np.int64)
         bhindex = np.array(hf[tag+'/Particle'].get('BH_Index'), dtype = np.int64)
-        bh_mass = np.array(hf[tag+'/Galaxy'].get('BH_Mass'), dtype = np.float64)
 
     nThreads=8
     a = E.read_header('SUBFIND', sim, tag, 'ExpansionFactor')
@@ -79,10 +78,8 @@ if __name__ == "__main__":
                 sel = dindex
             elif 'PartType4' in path:
                 sel = sindex
-            else:
-                nok = np.where(bh_mass==0)[0]
+            elif 'PartType5' in path:
                 sel = bhindex
-                location = 'Galaxy'
         else:
             tmp = 'SUBFIND'
             location = 'Galaxy'
@@ -108,18 +105,18 @@ if __name__ == "__main__":
 
 
         if 'age' in name.lower(): out = fl.get_age(out, z, nThreads)
-        if 'PartType5' in path:
-            if len(out.shape)>1:
-                out[nok] = [0.,0.,0.]
-            else:
-                out[nok] = 0.
+        # if 'PartType5' in path:
+        #     if len(out.shape)>1:
+        #         out[nok] = [0.,0.,0.]
+        #     else:
+        #         out[nok] = 0.
 
 
         if 'coordinates' in path.lower(): out = out.T/a
         if 'velocity' in path.lower(): out = out.T
         # if 'halfmassrad' in path.lower(): out = out.T
         if name=='BH_Mdot':
-            out = (out.astype(np.float64)*(u.g/u.s)).to(u.M_sun/u.yr).value
+            out = h*(out.astype(np.float64)*(u.g/u.s)).to(u.M_sun/u.yr).value
 
 
         fl.create_dataset(out, name, '{}/{}'.format(tag, location),
