@@ -60,7 +60,7 @@ Once the data is downloaded, you can use it as so,
 import flares
 fl = flares.flares('./data/flares.hdf5', sim_type='FLARES')
 
-mstar = fl.load_dataset('Mstar_30', arr_type='Galaxy')
+mstar = fl.load_dataset('Mstar_aperture/30', arr_type='Galaxy')
 
 halo = fl.halos[0]
 tag = fl.tags[0]
@@ -135,6 +135,7 @@ with h5py.File(fname, 'r') as hf:
     S_mass = np.array(hf[num+'/'+tag+'/Particle'].get('S_Mass'), dtype = np.float64)*1e10
     S_Z = np.array(hf[num+'/'+tag+'/Particle'].get('S_Z'), dtype = np.float64)
     S_age = np.array(hf[num+'/'+tag+'/Particle'].get('S_Age'), dtype = np.float64)*1e3
+    S_ap30 = np.array(hf[num+'/'+tag+'/Particle/Apertures/Star'].get('30'), dtype = bool) #Boolean array of particles within 30 pkpc
 
 begin = np.zeros(len(S_len), dtype = np.int64)
 end = np.zeros(len(S_len), dtype = np.int64)
@@ -144,4 +145,8 @@ end = np.cumsum(S_len)
 #Age in Myr of all particles belonging to first galaxy in resim region 'num'
 
 print (S_age[begin[0]:end[0]])
+
+#Age in Myr of all particles belonging to first galaxy in resim region 'num' within 30 pkpc
+print (S_age[begin[0]:end[0]][S_ap30[begin[0]:end[0]]])
+
 ```
