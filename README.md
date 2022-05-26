@@ -83,7 +83,7 @@ halo = fl.halos
 tag = fl.tags[-1]
 volume = (4/3)*np.pi*(fl.radius**3)
 
-mstar = fl.load_dataset('Mstar_aperture/Mstar_30', arr_type='Galaxy')*1e10
+mstar = fl.load_dataset('Mstar_aperture/30', arr_type='Galaxy')*1e10  #Stellar mass within a 30pkpc aperture
 df = pd.read_csv('weight_files/weights_grid.txt')
 weights = np.array(df['weights'])
 

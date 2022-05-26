@@ -42,25 +42,32 @@ if __name__ == "__main__":
 
 
     with h5py.File(filename, 'r') as hf:
-        dindex = np.array(hf[tag+'/Particle'].get('DM_Index'), dtype = np.int64)
-        sindex = np.array(hf[tag+'/Particle'].get('S_Index'), dtype = np.int64)
-        gindex = np.array(hf[tag+'/Particle'].get('G_Index'), dtype = np.int64)
-        dnum =   np.array(hf[tag+'/Galaxy'].get('DM_Length'), dtype = np.int64)
-        snum =   np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
-        gnum =   np.array(hf[tag+'/Galaxy'].get('G_Length'), dtype = np.int64)
+        dindex  = np.array(hf[tag+'/Particle'].get('DM_Index'), dtype = np.int64)
+        sindex  = np.array(hf[tag+'/Particle'].get('S_Index'), dtype = np.int64)
+        gindex  = np.array(hf[tag+'/Particle'].get('G_Index'), dtype = np.int64)
+        bhindex = np.array(hf[tag+'/Particle'].get('BH_Index'), dtype = np.int64)
+        dnum    = np.array(hf[tag+'/Galaxy'].get('DM_Length'), dtype = np.int64)
+        snum    = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
+        gnum    = np.array(hf[tag+'/Galaxy'].get('G_Length'), dtype = np.int64)
+        bhnum   = np.array(hf[tag+'/Galaxy'].get('BH_Length'), dtype = np.int64)
 
 
     from download_methods import recalculate_derived_subhalo_properties, save_to_hdf5, get_recent_SFR, get_aperture_inst_SFR
 
 
     # SMass, GMass, DMass, total_SFR = \
-    SMass, GMass, DMass = \
-        recalculate_derived_subhalo_properties(inp, num, tag, snum, gnum, dnum, sindex, gindex, dindex, data_folder=data_folder)
+    SMass, GMass, BHMass, DMass = \
+        recalculate_derived_subhalo_properties(inp, num, tag, snum, gnum, dnum, bhnum, sindex, gindex, bhindex, dindex, data_folder=data_folder)
 
 
-    save_to_hdf5(num, tag, SMass, 'Mstar', 'Total stellar mass of the subhalo', group='Galaxy', inp=inp, data_folder=data_folder, overwrite=True)
-    save_to_hdf5(num, tag, GMass, 'Mgas', 'Total gas mass of the subhalo', group='Galaxy', inp=inp, data_folder=data_folder, overwrite=True)
-    save_to_hdf5(num, tag, DMass, 'Mdm', 'Total dark matter mass of the subhalo', group='Galaxy', inp=inp, data_folder=data_folder, overwrite=True)
+    save_to_hdf5(num, tag, SMass, 'Mstar', 'Total stellar mass of the subhalo', group='Galaxy', inp=inp,
+                    data_folder=data_folder, overwrite=True)
+    save_to_hdf5(num, tag, GMass, 'Mgas', 'Total gas mass of the subhalo', group='Galaxy', inp=inp,
+                    data_folder=data_folder, overwrite=True)
+    save_to_hdf5(num, tag, BHMass, 'Mbh', 'Total BH mass of the subhalo', group='Galaxy', inp=inp,
+                    data_folder=data_folder, overwrite=True)
+    save_to_hdf5(num, tag, DMass, 'Mdm', 'Total dark matter mass of the subhalo', group='Galaxy', inp=inp,
+                    data_folder=data_folder, overwrite=True)
     # save_to_hdf5(num, tag, total_SFR, 'SFR',
     #              'Total instantaneous star formation rate of the subhalo', group='Galaxy', inp=inp)
 
@@ -68,48 +75,46 @@ if __name__ == "__main__":
     timescales = [1,5,10,20,50,100,200]
     aperture_sizes = [1, 3, 5, 10, 20, 30, 40, 50, 70, 100, 1e4]
     aperture_labels = np.hstack([aperture_sizes[:-1], 'total'])
-    SFR, Mstar, S_ap_bool, G_ap_bool = get_recent_SFR(num,tag,t=timescales,aperture_size=aperture_sizes,inp=inp, data_folder=data_folder)
+    SFR, Mstar, S_ap_bool, G_ap_bool, BH_ap_bool = get_recent_SFR(num,tag,t=timescales,aperture_size=aperture_sizes,inp=inp, data_folder=data_folder)
     inst_SFR = get_aperture_inst_SFR(num,tag,aperture_size=aperture_sizes,inp=inp, data_folder=data_folder)
 
+
     for jj,_ap in enumerate(aperture_sizes[:-1]):
-        save_to_hdf5(num, tag, Mstar[_ap], f'Mstar_{_ap}',
+        save_to_hdf5(num, tag, Mstar[_ap], f'{_ap}',
                      f'Stellar mass contained within a {_ap} pkpc aperture',
                      group=f'Galaxy/Mstar_aperture', inp=inp, unit='1E10 Msun', data_folder=data_folder, overwrite=True)
 
         save_to_hdf5(num, tag, inst_SFR[_ap], f'SFR_inst',
                      f'Instantaneous star formation rate contained within a {_ap} pkpc aperture',
-                     group=f'Galaxy/SFR_aperture/SFR_{_ap}', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
+                     group=f'Galaxy/SFR_aperture/{_ap}', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
 
-         ## save aperture boolean selection
-         save_to_hdf5(num, tag, S_ap_bool[jj], F'{_ap}',
-                      f'Boolean array of star particles within {_ap} pkpc aperture', group='Particle/Apertures/Star', inp=inp, unit='bool', data_folder=data_folder, overwrite=True)
+        ## save aperture boolean selection
+        save_to_hdf5(num, tag, S_ap_bool[jj], F'{_ap}',
+                  f'Boolean array of star particles within {_ap} pkpc aperture', group='Particle/Apertures/Star', inp=inp, unit='bool', data_folder=data_folder, overwrite=True)
 
-         save_to_hdf5(num, tag, G_ap_bool[jj], F'{_ap}',
-                       f'Boolean array of gas particles within {_ap} pkpc aperture', group='Particle/Apertures/Gas', inp=inp, unit='bool', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, G_ap_bool[jj], F'{_ap}',
+                   f'Boolean array of gas particles within {_ap} pkpc aperture', group='Particle/Apertures/Gas', inp=inp, unit='bool', data_folder=data_folder, overwrite=True)
+
+        save_to_hdf5(num, tag, BH_ap_bool[jj], F'{_ap}',
+                   f'Boolean array of BH particles within {_ap} pkpc aperture', group='Particle/Apertures/BH', inp=inp, unit='bool', data_folder=data_folder, overwrite=True)
 
         for _t in timescales:
-            save_to_hdf5(num, tag, SFR[_ap][_t], f'SFR_{_t}_Myr',
+            save_to_hdf5(num, tag, SFR[_ap][_t], f'{_t}Myr',
                          f'Star formation rate measured over the past {_t} Myr in a {_ap} pkpc aperture',
-                 group=f'Galaxy/SFR_aperture/SFR_{_ap}', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
+                 group=f'Galaxy/SFR_aperture/{_ap}', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
 
 
     ## save total SFR
     _ap = 1e4
-    save_to_hdf5(num, tag, inst_SFR[_ap], f'SFR_inst',
+    save_to_hdf5(num, tag, inst_SFR[_ap], f'inst',
                  f'Total instantaneous star formation rate in the subhalo',
                  group='Galaxy/SFR_total', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
 
     for _t in timescales:
-        save_to_hdf5(num, tag, SFR[_ap][_t], f'SFR_{_t}_Myr',
+        save_to_hdf5(num, tag, SFR[_ap][_t], f'{_t}Myr',
                      f'Total star formation rate measured over the past {_t} Myr in the subhalo',
                      group='Galaxy/SFR_total', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
 
-    ## save aperture boolean selection
-    # save_to_hdf5(num, tag, S_ap_bool[:-1], 'Star',
-    #              f'Boolean array of star particles within 1, 3, 5, 10, 20, 30, 40, 50, 70, 100 pkpc aperture', group='Particle/Apertures', inp=inp, unit='Boolean', data_folder=data_folder, overwrite=True)
-    #
-    # save_to_hdf5(num, tag, G_ap_bool[:-1], 'Gas',
-    #               f'Boolean array of gas particles within 1, 3, 5, 10, 20, 30, 40, 50, 70, 100 pkpc aperture', group='Particle/Apertures', inp=inp, unit='Boolean', data_folder=data_folder, overwrite=True)
 
 
 
@@ -155,7 +160,8 @@ if __name__ == "__main__":
         DTM[jj] = DTM_fit(np.nanmean(this_gZ), S_massweightedage[jj]*1e3)
 
     save_to_hdf5(num, tag, S_massweightedage, 'MassWeightedStellarAge',
-                 'Initial mass-weighted stellar age within 30 pkpc aperture',          group=f'Galaxy/StellarAges', inp=inp, unit='Gyr', data_folder=data_folder, overwrite=True)
+                 'Initial mass-weighted stellar age within 30 pkpc aperture',
+                 group=f'Galaxy/StellarAges', inp=inp, unit='Gyr', data_folder=data_folder, overwrite=True)
 
     save_to_hdf5(num, tag, S_massweightedZ, 'MassWeightedStellarZ',
                  'Initial mass-weighted stellar metallicity within 30 pkpc aperture',

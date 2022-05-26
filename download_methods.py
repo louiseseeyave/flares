@@ -197,7 +197,7 @@ def extract_info(num, tag, inp='FLARES'):
 
     comm.Barrier()
 
-    part = int(len(indices)/size)
+    part = int(np.ceil(len(indices)/size))
     num_subhalos = int(len(sgrpno))
 
     if rank == 0:
@@ -292,6 +292,7 @@ def extract_info(num, tag, inp='FLARES'):
     tdnum = np.zeros(len(thisok)+1, dtype = np.int32)
     tsnum = np.zeros(len(thisok)+1, dtype = np.int32)
     tgnum = np.zeros(len(thisok)+1, dtype = np.int32)
+    tbhnum = np.zeros(len(thisok)+1, dtype = np.int32)
     ind = np.array([])
 
     tdindex = np.zeros(len(dm_grpn), dtype = np.int32)
@@ -299,6 +300,8 @@ def extract_info(num, tag, inp='FLARES'):
 
     if SP:
         tsindex = np.zeros(len(sp_grpn), dtype = np.int32)
+    if BH:
+        tbhindex = np.zeros(len(bh_grpn), dtype = np.int32)
 
     gc.collect()
 
@@ -325,6 +328,7 @@ def extract_info(num, tag, inp='FLARES'):
         else:
             s_ok = np.array([])
             s_ok_sel = np.array([])
+
 
         if BH:
             bh_ok = np.where((bh_sgrpn-sgrpno[jj]==0) & (bh_grpn-grpno[jj]==0))[0]
@@ -378,15 +382,26 @@ def extract_info(num, tag, inp='FLARES'):
 
             #Extracting subgrid black hole properties
             if BH:
-                if len(bh_ok>0):
+                #We are selecting all black holes now, instead of just the massive black hole
+                # if len(bh_ok>0):
+                #
+                #     tbh_max_index = np.argmax(bh_mass[bh_ok])
+                #     tbh_mass[jj] = bh_mass[bh_ok[tbh_max_index]]
+                #
+                #     if inp=='FLARES':
+                #         tbhindex[jj] = bh_ok[tbh_max_index]
+                #     else:
+                #         tbhindex[jj] = bb[bh_ok[tbh_max_index]]
 
-                    tbh_max_index = np.argmax(bh_mass[bh_ok])
-                    tbh_mass[jj] = bh_mass[bh_ok[tbh_max_index]]
+                tbhnum[kk+1] = len(bh_ok)
+                bhcum = np.cumsum(tbhnum)
+                bhbeg = bhcum[kk]
+                bhend = bhcum[kk+1]
+                if inp=='FLARES':
+                    tbhindex[bhbeg:bhend] = bh_ok
+                else:
+                    tbhindex[bhbeg:bhend] = bb[bh_ok]
 
-                    if inp=='FLARES':
-                        tbhindex[jj] = bh_ok[tbh_max_index]
-                    else:
-                        tbhindex[jj] = bb[bh_ok[tbh_max_index]]
 
             if SP:
                 tsnum[kk+1] = len(s_ok)
@@ -428,27 +443,30 @@ def extract_info(num, tag, inp='FLARES'):
     ##End of loop ii, jj##
 
     del dm_sgrpn, dm_grpn, dm_cood, gp_sgrpn, gp_grpn, gp_cood, gp_sfr
-    if SP: del sp_sgrpn, sp_grpn, sp_cood,
-    if BH: del bh_sgrpn, bh_grpn, bh_mass
+    if SP: del sp_sgrpn, sp_grpn, sp_cood
+    if BH: del bh_sgrpn, bh_grpn, bh_cood
 
     gc.collect()
 
 
     thisok = np.delete(thisok, ind.astype(int))
-    tbhindex = tbhindex[thisok]
-    tbh_mass = tbh_mass[thisok]
+    # tbhindex = tbhindex[thisok]
+    # tbh_mass = tbh_mass[thisok]
 
     tdtot = np.sum(tdnum)
     tstot = np.sum(tsnum)
     tgtot = np.sum(tgnum)
+    tbhtot = np.sum(tbhnum)
 
     tdnum = tdnum[1:len(thisok)+1]
     tsnum = tsnum[1:len(thisok)+1]
     tgnum = tgnum[1:len(thisok)+1]
+    tbhnum = tbhnum[1:len(thisok)+1]
 
     tdindex = tdindex[:tdtot]
     tsindex = tsindex[:tstot]
     tgindex = tgindex[:tgtot]
+    tbhindex = tbhindex[:tbhtot]
 
     comm.Barrier()
 
@@ -460,11 +478,7 @@ def extract_info(num, tag, inp='FLARES'):
 
     indices = comm.gather(thisok, root=0)
 
-
-    bhindex = comm.gather(tbhindex, root=0)
-    bh_mass = comm.gather(tbh_mass, root=0)
-
-    del thisok, tbhindex, tbh_mass
+    del thisok
     gc.collect()
 
     dnum = comm.gather(tdnum, root=0)
@@ -473,6 +487,8 @@ def extract_info(num, tag, inp='FLARES'):
     del tsnum
     gnum = comm.gather(tgnum, root=0)
     del tgnum
+    bhnum = comm.gather(tbhnum, root=0)
+    del tbhnum
 
     dindex = comm.gather(tdindex, root=0)
     del tdindex
@@ -480,6 +496,8 @@ def extract_info(num, tag, inp='FLARES'):
     del tsindex
     gindex = comm.gather(tgindex, root=0)
     del tgindex
+    bhindex = comm.gather(tbhindex, root=0)
+    del tbhindex
 
     gc.collect()
 
@@ -495,11 +513,10 @@ def extract_info(num, tag, inp='FLARES'):
         gindex = np.concatenate(np.array(gindex))
         bhindex = np.concatenate(np.array(bhindex))
 
-        bh_mass = np.concatenate(np.array(bh_mass))
-
         dnum = np.concatenate(np.array(dnum))
         snum = np.concatenate(np.array(snum))
         gnum = np.concatenate(np.array(gnum))
+        bhnum = np.concatenate(np.array(bhnum))
 
         ok_centrals = grpno[indices] - 1
 
@@ -507,8 +524,7 @@ def extract_info(num, tag, inp='FLARES'):
         sgrpno = sgrpno[indices]
         grpno = grpno[indices]
 
-
-    return ok_centrals, indices, sgrpno, grpno, cop, dnum, snum, gnum, dindex, sindex, gindex, bhindex, bh_mass
+    return ok_centrals, indices, sgrpno, grpno, cop, dnum, snum, gnum, bhnum, dindex, sindex, gindex, bhindex
 ## End of function `extract_info`
 
 
@@ -551,8 +567,8 @@ def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'G
 
 
 
-def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, D_len, \
-                                   S_index, G_index, D_index, data_folder = 'data/'):
+def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, BH_len, D_len, \
+                                   S_index, G_index, BH_index, D_index, data_folder = 'data/'):
     """
     Recalculate subhalo properties, such as the stellar/total mass and SFR,
     after inclusion of spurious galaxies.
@@ -592,6 +608,12 @@ def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, D_len, \
         sp_mass = np.array([])
 
     try:
+        bh_mass = E.read_array('PARTDATA', sim, tag, '/PartType5/Mass',
+                               noH=True, physicalUnits=True, numThreads=1)
+    except:
+        bh_mass = np.array([])
+
+    try:
         dm_pmass = E.read_header('PARTDATA',sim,tag,'MassTable')[1] /\
                    E.read_header('PARTDATA',sim,tag,'HubbleParam')
     except:
@@ -607,18 +629,25 @@ def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, D_len, \
     gbegin[1:] = np.cumsum(G_len)[:-1]
     gend = np.cumsum(G_len)
 
-    SMass = np.zeros(len(S_len))
-    GMass = np.zeros(len(G_len))
+    bhbegin = np.zeros(len(BH_len), dtype = np.int64)
+    bhend = np.zeros(len(BH_len), dtype = np.int64)
+    bhbegin[1:] = np.cumsum(BH_len)[:-1]
+    bhend = np.cumsum(BH_len)
+
+    SMass   = np.zeros(len(S_len))
+    GMass   = np.zeros(len(G_len))
+    BHMass  = np.zeros(len(BH_len))
     # total_SFR = np.zeros(len(S_len))
 
     for jj in range(len(sbegin)):
-        SMass[jj] = np.sum(sp_mass[S_index[sbegin[jj]:send[jj]]])
-        GMass[jj] = np.sum(gp_mass[G_index[gbegin[jj]:gend[jj]]])
+        SMass[jj]   = np.sum(sp_mass[S_index[sbegin[jj]:send[jj]]])
+        GMass[jj]   = np.sum(gp_mass[G_index[gbegin[jj]:gend[jj]]])
+        BHMass[jj]  = np.sum(bh_mass[BH_index[bhbegin[jj]:bhend[jj]]])
         # total_SFR[jj] = np.sum(gp_sfr[G_index[gbegin[jj]:gend[jj]]])
 
     DMass = D_len * dm_pmass
 
-    return SMass, GMass, DMass # , total_SFR
+    return SMass, GMass, BHMass, DMass
 
 
 
@@ -652,15 +681,17 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
     a = 1. / (1+z)
 
     with h5py.File(sim, 'r') as hf:
-        S_len = np.array(hf[F'{tag}/Galaxy'].get('S_Length'), dtype = np.int64)
-        G_len = np.array(hf[F'{tag}/Galaxy'].get('G_Length'), dtype = np.int64)
-        COP = np.array(hf[F'{tag}/Galaxy'].get('COP'), dtype = np.float64) * a
+        S_len   = np.array(hf[F'{tag}/Galaxy'].get('S_Length'), dtype = np.int64)
+        G_len   = np.array(hf[F'{tag}/Galaxy'].get('G_Length'), dtype = np.int64)
+        BH_len  = np.array(hf[F'{tag}/Galaxy'].get('BH_Length'), dtype = np.int64)
+        COP     = np.array(hf[F'{tag}/Galaxy'].get('COP'), dtype = np.float64) * a
 
-        S_massinitial = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)
-        S_mass = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)
-        S_age = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64)*1e3 #Age is in Gyr, so converting the array to Myr
-        S_coods = np.array(hf[F'{tag}/Particle'].get('S_Coordinates'), dtype = np.float64) * a
-        G_coods = np.array(hf[F'{tag}/Particle'].get('G_Coordinates'), dtype = np.float64) * a
+        S_massinitial   = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)
+        S_mass          = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)
+        S_age           = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64)*1e3 #Age is in Gyr, so converting the array to Myr
+        S_coods         = np.array(hf[F'{tag}/Particle'].get('S_Coordinates'), dtype = np.float64) * a
+        G_coods         = np.array(hf[F'{tag}/Particle'].get('G_Coordinates'), dtype = np.float64) * a
+        BH_coods        = np.array(hf[F'{tag}/Particle'].get('BH_Coordinates'), dtype = np.float64) * a
 
 
     begin = np.zeros(len(S_len), dtype = np.int64)
@@ -673,10 +704,16 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
     gbegin[1:] = np.cumsum(G_len)[:-1]
     gend = np.cumsum(G_len)
 
+    bhbegin = np.zeros(len(BH_len), dtype = np.int64)
+    bhend = np.zeros(len(BH_len), dtype = np.int64)
+    bhbegin[1:] = np.cumsum(BH_len)[:-1]
+    bhend = np.cumsum(BH_len)
+
     SFR = {_ap: {_t: np.zeros(len(begin)) for _t in t} for _ap in aperture_size}
     Mstar = {_ap: np.zeros(len(begin)) for _ap in aperture_size}
     S_ap_bool = np.zeros((len(aperture_size),len(S_coods.T)), dtype=np.bool)
     G_ap_bool = np.zeros((len(aperture_size),len(G_coods.T)), dtype=np.bool)
+    BH_ap_bool = np.zeros((len(aperture_size),len(BH_coods.T)), dtype=np.bool)
 
     for jj, kk in enumerate(begin):
 
@@ -689,6 +726,7 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
         this_massinitial = S_massinitial[begin[jj]:end[jj]]
 
         this_gcood = G_coods[:,gbegin[jj]:gend[jj]]
+        this_bhcood = BH_coods[:,bhbegin[jj]:bhend[jj]]
 
         ## filter by age and aperture
         for ll, _ap in enumerate(aperture_size):
@@ -696,6 +734,7 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
             # print (np.shape(S_ap_bool[_ap][begin[jj]:end[jj]]), np.shape(aperture_mask), begin[jj]-end[jj])
             S_ap_bool[ll][begin[jj]:end[jj]] = aperture_mask
             G_ap_bool[ll][gbegin[jj]:gend[jj]] = (cdist(this_gcood.T, np.array([COP[:,jj]])) < _ap * 1e-3)[:,0]
+            BH_ap_bool[ll][bhbegin[jj]:bhend[jj]] = (cdist(this_bhcood.T, np.array([COP[:,jj]])) < _ap * 1e-3)[:,0]
 
             if np.sum(aperture_mask) > 0:
                 Mstar[_ap][jj] = np.sum(this_mass[aperture_mask])
@@ -707,7 +746,7 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
                 if len(ok) > 0:
                     SFR[_ap][_t][jj] = np.sum(this_massinitial[ok])/(_t*1e6) * 1e10
 
-    return SFR, Mstar, S_ap_bool, G_ap_bool
+    return SFR, Mstar, S_ap_bool, G_ap_bool, BH_ap_bool
 
 
 def get_aperture_inst_SFR(num, tag, aperture_size = 30, inp = 'FLARES', data_folder = 'data/'):
@@ -787,7 +826,7 @@ if __name__ == "__main__":
 
     # save_to_hdf5(num, tag, inp=inp, data_folder=data_folder)
 
-    ok_centrals, indices, sgrpno, grpno, cop, dnum, snum, gnum, dindex, sindex, gindex, bhindex, bh_mass = extract_info(num, tag, inp)
+    ok_centrals, indices, sgrpno, grpno, cop, dnum, snum, gnum, bhnum, dindex, sindex, gindex, bhindex = extract_info(num, tag, inp)
 
     ## MPI parameters
     comm = MPI.COMM_WORLD
@@ -798,7 +837,7 @@ if __name__ == "__main__":
         print ("#################    Saving required properties to hdf5     ###################")
 
     if rank != 0:
-        del ok_centrals, indices, sgrpno, grpno, cop, dnum, snum, gnum, dindex, sindex, gindex, bhindex, bh_mass
+        del ok_centrals, indices, sgrpno, grpno, cop, dnum, snum, gnum, bhnum, dindex, sindex, gindex, bhindex
 
     gc.collect()
 
@@ -815,6 +854,6 @@ if __name__ == "__main__":
         save_to_hdf5(num, tag, dnum, 'DM_Length', 'Number of dark matter particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
         save_to_hdf5(num, tag, snum, 'S_Length', 'Number of star particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
         save_to_hdf5(num, tag, gnum, 'G_Length', 'Number of gas particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
+        save_to_hdf5(num, tag, bhnum, 'BH_Length', 'Number of BH particles', dtype='int64', group='Galaxy', inp=inp, unit='No units', data_folder=data_folder, overwrite=True)
 
         save_to_hdf5(num, tag, cop.T, 'COP', desc = 'Number of gas particles', group='Galaxy', dtype='float64', inp=inp, unit='cMpc', data_folder=data_folder, overwrite=True)
-        save_to_hdf5(num, tag, bh_mass, 'BH_Mass', desc = 'Mass of the most massive black hole in the subgroup', dtype='float64', group='Galaxy', inp=inp, unit='1e10 Msun', data_folder=data_folder, overwrite=True)
