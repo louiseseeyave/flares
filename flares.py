@@ -333,11 +333,12 @@ class flares:
         with h5py.File(self.fname, mode='a') as h5f:
             if hdr_name not in list(h5f.keys()):
                 hdr = h5f.create_group(hdr_name)
-                for ii in value.keys():
-                    hdr.attrs[ii] = value[ii]
             else:
                 print("`{}` attributes group already created".format(hdr_name))
-                return False
+                hdr = h5f[hdr_name]
+            for ii in value.keys():
+                hdr.attrs[ii] = value[ii]
+            
                 #sys.exit()
 
 

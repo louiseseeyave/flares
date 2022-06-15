@@ -17,7 +17,7 @@ conv = (u.solMass/u.Mpc**2).to(u.solMass/u.pc**2)
 norm = np.linalg.norm
 
 @njit(float64[:](float64[:,:], float64[:,:], float64[:], float64[:], float64[:], float64[:], int32), parallel=True, nogil=True)
-def get_S_LOS(s_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
+def old_cal_ZLOS(cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
 
     """
 
@@ -31,20 +31,20 @@ def get_S_LOS(s_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
         g_sml (1d array): gas particle smoothing length
 
     """
-    n = len(s_cood)
+    n = len(cood)
     Z_los_SD = np.zeros(n)
     #Fixing the observer direction as z-axis.
     xdir, ydir, zdir = 0, 1, 2
     for ii in prange(n):
 
-        thisspos = s_cood[ii]
-        ok = np.where(g_cood[:,zdir] > thisspos[zdir])[0]
+        thispos = cood[ii]
+        ok = np.where(g_cood[:,zdir] > thispos[zdir])[0]
         thisgpos = g_cood[ok]
         thisgsml = g_sml[ok]
         thisgZ = g_Z[ok]
         thisgmass = g_mass[ok]
-        x = thisgpos[:,xdir] - thisspos[xdir]
-        y = thisgpos[:,ydir] - thisspos[ydir]
+        x = thisgpos[:,xdir] - thispos[xdir]
+        y = thisgpos[:,ydir] - thispos[ydir]
 
         b = np.sqrt(x*x + y*y)
         boverh = b/thisgsml
@@ -57,47 +57,82 @@ def get_S_LOS(s_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
 
     return Z_los_SD
 
-
-@njit(float64(float64[:], float64[:,:], float64[:], float64[:], float64[:], float64[:], int32), parallel=True, nogil=True)
-def get_BH_LOS(bh_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
-
+def cal_ZLOS_kd(req_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins,
+                 dimens=(0, 1, 2)):
     """
 
-    Compute the los metal surface density (in Msun/Mpc^2) for bh particles inside the galaxy taking
-    the z-axis as the los.
+    Compute the los metal surface density (in Msun/Mpc^2) for given
+    particles inside the galaxy taking the z-axis as the los. Method used
+    in Roper+2022
+
     Args:
-        bh_cood (3d array): BH particle coordinates
+        req_cood (3d array): particle coordinates to calculate
+                             metal line of sight density for
         g_cood (3d array): gas particle coordinates
         g_mass (1d array): gas particle mass
         g_Z (1d array): gas particle metallicity
         g_sml (1d array): gas particle smoothing length
+        dimens (tuple: int): tuple of xyz coordinates
 
     """
 
-    #Fixing the observer direction as z-axis.
-    xdir, ydir, zdir = 0, 1, 2
+    # Generalise dimensions (function assume LOS along z-axis)
+    xdir, ydir, zdir = dimens
 
-    if np.sum(bh_cood)>0:
-        ok = np.where(g_cood[:,zdir] > bh_cood[zdir])[0]
-        thisgpos = g_cood[ok]
-        thisgsml = g_sml[ok]
-        thisgZ = g_Z[ok]
-        thisgmass = g_mass[ok]
-        x = thisgpos[:,xdir] - bh_cood[xdir]
-        y = thisgpos[:,ydir] - bh_cood[ydir]
+    # Get how many particles
+    n = req_cood.shape[0]
 
-        b = np.sqrt(x*x + y*y)
-        boverh = b/thisgsml
+    # Lets build the kd tree from star positions
+    tree = cKDTree(req_cood[:, (xdir, ydir)])
 
-        ok = np.where(boverh <= 1.)[0]
-        kernel_vals = np.array([lkernel[int(kbins*ll)] for ll in boverh[ok]])
+    # Query the tree for all gas particles (can now supply multiple rs!)
+    query = tree.query_ball_point(g_cood[:, (xdir, ydir)], r=g_sml, p=1)
 
-        Z_los_SD = np.sum((thisgmass[ok]*thisgZ[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals) #in units of Msun/Mpc^2
+    # Now we just need to collect each particle neighbours
+    gas_nbours = {p: [] for p in range(n)}
+    for g_ind, parts in enumerate(query):
+        for _ind in parts:
+            gas_nbours[_ind].append(g_ind)
 
-    else:
-        Z_los_SD = 0.
+    # Initialise line of sight metal density
+    Z_los_SD = np.zeros(n)
+
+    # Loop over the required particles
+    for s_ind in range(n):
+
+        # Extract gas particles to consider
+        g_inds = gas_nbours.pop(s_ind)
+
+        # Extract data for these particles
+        thisspos = req_cood[_ind]
+        thisgpos = g_cood[g_inds]
+        thisgsml = g_sml[g_inds]
+        thisgZ = g_Z[g_inds]
+        thisgmass = g_mass[g_inds]
+
+        # We only want to consider particles "in-front" of the star
+        ok = np.where(thisgpos[:, zdir] > thisspos[zdir])[0]
+        thisgpos = thisgpos[ok]
+        thisgsml = thisgsml[ok]
+        thisgZ = thisgZ[ok]
+        thisgmass = thisgmass[ok]
+
+        # Get radii and divide by smooting length
+        b = np.linalg.norm(thisgpos[:, (xdir, ydir)]
+                           - thisspos[((xdir, ydir), )],
+                           axis=-1)
+        boverh = b / thisgsml
+
+        # Apply kernel
+        kernel_vals = np.array([lkernel[int(kbins * ll)] for ll in boverh])
+
+        # Finally get LOS metal surface density in units of Msun/pc^2
+        Z_los_SD[s_ind] = np.sum((thisgmass * thisgZ
+                                  / (thisgsml * thisgsml))
+                                 * kernel_vals)
 
     return Z_los_SD
+
 
 def get_data(ii, tag, inp = 'FLARES', data_folder='data/', aperture=30):
 
@@ -116,21 +151,23 @@ def get_data(ii, tag, inp = 'FLARES', data_folder='data/', aperture=30):
     print (filename)
 
     with h5py.File(filename, 'r') as hf:
-        S_len = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
-        G_len = np.array(hf[tag+'/Galaxy'].get('G_Length'), dtype = np.int64)
+        S_len   = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
+        G_len   = np.array(hf[tag+'/Galaxy'].get('G_Length'), dtype = np.int64)
+        BH_len  = np.array(hf[tag+'/Galaxy'].get('BH_Length'), dtype = np.int64)
 
-        S_coords = np.array(hf[tag+'/Particle'].get('S_Coordinates'), dtype = np.float64)
-        G_coords = np.array(hf[tag+'/Particle'].get('G_Coordinates'), dtype = np.float64)
-        G_mass = np.array(hf[tag+'/Particle'].get('G_Mass'), dtype = np.float64)*1e10
-        G_sml = np.array(hf[tag+'/Particle'].get('G_sml'), dtype = np.float64)
-        G_Z = np.array(hf[tag+'/Particle'].get('G_Z_smooth'), dtype = np.float64)
-        BH_coords = np.array(hf[tag+'/Galaxy'].get('BH_Coordinates'), dtype = np.float64)
+        S_coords    = np.array(hf[tag+'/Particle'].get('S_Coordinates'), dtype = np.float64)
+        G_coords    = np.array(hf[tag+'/Particle'].get('G_Coordinates'), dtype = np.float64)
+        G_mass      = np.array(hf[tag+'/Particle'].get('G_Mass'), dtype = np.float64)*1e10
+        G_sml       = np.array(hf[tag+'/Particle'].get('G_sml'), dtype = np.float64)
+        G_Z         = np.array(hf[tag+'/Particle'].get('G_Z_smooth'), dtype = np.float64)
+        BH_coords   = np.array(hf[tag+'/Particle'].get('BH_Coordinates'), dtype = np.float64)
 
         S_ap = np.array(hf[tag+'/Particle/Apertures/Star'].get(F'{aperture}'), dtype = np.bool)
         G_ap = np.array(hf[tag+'/Particle/Apertures/Gas'].get(F'{aperture}'), dtype = np.bool)
+        BH_ap = np.array(hf[tag+'/Particle/Apertures/BH'].get(F'{aperture}'), dtype = np.bool)
 
 
-    return S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords, S_ap, G_ap
+    return S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_len, BH_coords, S_ap, G_ap, BH_ap
 
 
 def get_len(Length):
@@ -143,16 +180,11 @@ def get_len(Length):
     return begin, end
 
 
-def get_ZLOS(jj, req_coords, G_coords, G_mass, G_Z, G_sml, gbegin, gend, lkernel, kbins, G_ap, S_ap=[], sbegin=[], send=[], Stars=True):
+def get_ZLOS(jj, req_coords, begin, end, ap, G_coords, G_mass, G_Z, G_sml, gbegin, gend, lkernel, kbins, G_ap):
 
 
-    if Stars:
-        this_coords = req_coords[sbegin[jj]:send[jj]][S_ap[sbegin[jj]:send[jj]]]
-        req_func = partial(get_S_LOS)
-    else:
-        this_coords = req_coords[jj]
-        req_func = partial(get_BH_LOS)
 
+    this_coords = req_coords[begin[jj]:end[jj]][ap[begin[jj]:end[jj]]]
 
     this_gcoords = G_coords[gbegin[jj]:gend[jj]][G_ap[gbegin[jj]:gend[jj]]]
     this_gmass = G_mass[gbegin[jj]:gend[jj]][G_ap[gbegin[jj]:gend[jj]]]
@@ -160,7 +192,7 @@ def get_ZLOS(jj, req_coords, G_coords, G_mass, G_Z, G_sml, gbegin, gend, lkernel
     this_gsml = G_sml[gbegin[jj]:gend[jj]][G_ap[gbegin[jj]:gend[jj]]]
 
 
-    Z_los_SD = req_func(this_coords, this_gcoords, this_gmass, this_gZ, this_gsml, lkernel, kbins)*conv
+    Z_los_SD = cal_ZLOS_kd(this_coords, this_gcoords, this_gmass, this_gZ, this_gsml, lkernel, kbins)*conv
 
     return Z_los_SD
 
@@ -198,12 +230,12 @@ if __name__ == "__main__":
     fl = flares.flares(fname = filename,sim_type = sim_type)
 
 
-    S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_coords, S_ap, G_ap = get_data(num, tag, inp=inp, data_folder=data_folder, aperture=aperture)
+    S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_len, BH_coords, S_ap, G_ap, BH_ap = get_data(num, tag, inp=inp, data_folder=data_folder, aperture=aperture)
 
     if len(S_len)==0:
         print (F"No data to write in region {num} for tag {tag}")
         S_los = np.zeros_like(S_len)
-        BH_los = np.zeros_like(S_len)
+        BH_los = np.zeros_like(BH_len)
 
     else:
         z = float(tag[5:].replace('p','.'))
@@ -212,6 +244,7 @@ if __name__ == "__main__":
         BH_coords=BH_coords.T/(1+z)
 
         sbegin, send = get_len(S_len)
+        bhbegin, bhend = get_len(BH_len)
         gbegin, gend = get_len(G_len)
 
         # print("calc shapes", sbegin.shape, send.shape, gbegin.shape, gend.shape)
@@ -220,13 +253,13 @@ if __name__ == "__main__":
         pool = schwimmbad.SerialPool()
 
 
-        calc_Zlos = partial(get_ZLOS, req_coords=S_coords, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, G_ap=G_ap, S_ap=S_ap, sbegin=sbegin, send=send)
+        calc_Zlos = partial(get_ZLOS, req_coords=S_coords, ap=S_ap, begin=sbegin, end=send, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, G_ap=G_ap)
         S_los = np.concatenate(np.array(list(pool.map(calc_Zlos, \
                                  np.arange(0,len(sbegin), dtype=np.int64)))))
 
-        calc_Zlos = partial(get_ZLOS, req_coords=BH_coords, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, G_ap=G_ap, Stars=False)
-        BH_los = np.array(list(pool.map(calc_Zlos, \
-                            np.arange(0, len(BH_coords), dtype=np.int64))))
+        calc_Zlos = partial(get_ZLOS, req_coords=BH_coords, ap=BH_ap, begin=bhbegin, end=bhend, G_coords=G_coords, G_mass=G_mass, G_Z=G_Z, G_sml=G_sml, gbegin=gbegin, gend=gend, lkernel=lkernel, kbins=kbins, G_ap=G_ap)
+        BH_los = np.concatenate(np.array(list(pool.map(calc_Zlos, \
+                            np.arange(0, len(bhbegin), dtype=np.int64)))))
 
 
         pool.close()
@@ -242,5 +275,7 @@ if __name__ == "__main__":
         desc = F'Star particle line-of-sight metal column density along the z-axis within {aperture} pkpc',
         unit = 'Msun/pc^2', overwrite=True)
 
-    fl.create_dataset(BH_los, 'BH_los', '{}/Particle'.format(tag),
+    out_bhlos = np.zeros(len(BH_coords))
+    out_bhlos[BH_ap] = BH_los
+    fl.create_dataset(out_bhlos, 'BH_los', '{}/Particle'.format(tag),
         desc = F'BH particle line-of-sight metal column density along the z-axis within {aperture} pkpc', unit = 'Msun/pc^2', overwrite=True)
