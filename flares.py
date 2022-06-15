@@ -393,6 +393,7 @@ class flares:
                         try:
                             out[halo][tag] = f['%s/%s/%s/%s'%(halo,tag,arr_type,name)][:]
                         except KeyError:
+                            if verbose: print("Dataset not found! Returning empty array.")
                             out[halo][tag] = []
         elif self.sim_type == "PERIODIC":
             out = {tag: None for tag in self.tags}
