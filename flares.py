@@ -489,9 +489,16 @@ class flares:
             ## if more than one property, loop through them
             if type(p_str) in [list,tuple]:
                 for _str in p_str:
-                    out[i][_str] = _p[_str][begin[i]:end[i]]
+                    if _p[_str].ndim > 1:
+                        out[i][_str] = _p[_str][:,begin[i]:end[i]]
+                    else:
+                        out[i][_str] = _p[_str][begin[i]:end[i]]
+
             else:
-                out[i][p_str] = _p[p_str][begin[i]:end[i]]
+                if _p[_str].ndim > 1:
+                    out[i][p_str] = _p[p_str][:,begin[i]:end[i]]
+                else:
+                    out[i][p_str] = _p[p_str][begin[i]:end[i]]
 
 
         return out
