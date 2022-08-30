@@ -16,6 +16,7 @@ import schwimmbad
 import synthobs
 from synthobs.sed import models
 
+os.environ['FLARE'] = '/cosma7/data/dp004/dc-wilk2/flare' # path to Steve's flare folder
 import flare
 import flare.filters
 from flare.photom import lum_to_M, M_to_lum
@@ -30,19 +31,20 @@ def get_data(ii, tag, inp = 'FLARES', data_folder = 'data', aperture = '30'):
         if len(num) == 1:
             num =  '0'+num
 
-        sim = rF"./{data_folder}/FLARES_{num}_sp_info.hdf5"
+        #sim = rF"./{data_folder}/FLARES_{num}_sp_info.hdf5"
+        sim = "/cosma7/data/dp004/dc-payy1/my_files/flares_pipeline/data/flares.hdf5"
 
     else:
         sim = rF"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
 
     with h5py.File(sim, 'r') as hf:
-        S_len   = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
-        DTM     = np.array(hf[tag+'/Galaxy'].get('DTM'), dtype = np.float64)
-        S_mass  = np.array(hf[tag+'/Particle'].get('S_MassInitial'), dtype = np.float64)*1e10
-        S_Z     = np.array(hf[tag+'/Particle'].get('S_Z_smooth'), dtype = np.float64)
-        S_age   = np.array(hf[tag+'/Particle'].get('S_Age'), dtype = np.float64)*1e3
-        S_los   = np.array(hf[tag+'/Particle'].get('S_los'), dtype = np.float64)
-        S_ap    = np.array(hf[tag+'/Particle/Apertures/Star'].get(F'{aperture}'), dtype = np.bool)
+        S_len   = np.array(hf[num+'/'+tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
+        DTM     = np.array(hf[num+'/'+tag+'/Galaxy'].get('DTM'), dtype = np.float64)
+        S_mass  = np.array(hf[num+'/'+tag+'/Particle'].get('S_MassInitial'), dtype = np.float64)*1e10
+        S_Z     = np.array(hf[num+'/'+tag+'/Particle'].get('S_Z_smooth'), dtype = np.float64)
+        S_age   = np.array(hf[num+'/'+tag+'/Particle'].get('S_Age'), dtype = np.float64)*1e3
+        S_los   = np.array(hf[num+'/'+tag+'/Particle'].get('S_los'), dtype = np.float64)
+        S_ap    = np.array(hf[num+'/'+tag+'/Particle/Apertures/Star'].get(F'{aperture}'), dtype = np.bool)
 
 
     begin       = np.zeros(len(S_len), dtype = np.int64)
@@ -50,19 +52,25 @@ def get_data(ii, tag, inp = 'FLARES', data_folder = 'data', aperture = '30'):
     begin[1:]   = np.cumsum(S_len)[:-1]
     end         = np.cumsum(S_len)
 
+    print('retrieved data')
     return S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM
 
 
-def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
+def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300',
+        LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7.,
+        extinction = 'default', data_folder = 'data', aperture='30', fescs=None):
 
     S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder, aperture)
 
     if np.isscalar(filters):
+        print('filters is scalar')
         Lums = np.zeros(len(begin), dtype = np.float64)
     else:
+        print('filters is not scalar')
         Lums = np.zeros((len(begin), len(filters)), dtype = np.float64)
 
     model = models.define_model(F'BPASSv2.2.1.binary/{IMF}') # DEFINE SED GRID -
+    print('defined sed grid')
     if extinction == 'default':
         model.dust_ISM  = ('simple', {'slope': -1.})    #Define dust curve for ISM
         model.dust_BC   = ('simple', {'slope': -1.})     #Define dust curve for birth cloud component
@@ -86,7 +94,6 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
     F = flare.filters.add_filters(filters, new_lam = model.lam)
     model.create_Lnu_grid(F) # --- create new L grid for each filter. In units of erg/s/Hz
 
-
     for jj in range(len(begin)):
 
         Masses              = S_mass[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
@@ -100,6 +107,15 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
             tauVs_ISM   = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
             tauVs_BC    = BC_fac * (Metallicities/0.01)
             fesc        = 0.0
+
+        elif Type == 'Total-random-fesc':
+            print('yup, type="Total-random-fesc"')
+            if len(fescs) != len(Masses):
+                ValueError(f"fescs array should have dimensions ({len(Masses)},)")
+            tauVs_ISM   = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
+            tauVs_BC    = BC_fac * (Metallicities/0.01)
+            fesc        = fescs
+            print('got to the end')
 
         elif Type == 'Pure-stellar':
             tauVs_ISM   = np.zeros(len(Masses))
@@ -119,8 +135,10 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
         else:
             ValueError(F"Undefined Type {Type}")
 
+        print('generating Lnu next')
+        Lnu = models.generate_Lnu(model = model, F = F, Masses = Masses, Ages = Ages, Metallicities = Metallicities, tauVs_ISM = tauVs_ISM, tauVs_BC = tauVs_BC, fesc = fesc, log10t_BC = log10t_BC) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
 
-        Lnu         = models.generate_Lnu(model = model, F = F, Masses = Masses, Ages = Ages, Metallicities = Metallicities, tauVs_ISM = tauVs_ISM, tauVs_BC = tauVs_BC, fesc = fesc, log10t_BC = log10t_BC) # --- calculate rest-frame Luminosity. In units of erg/s/Hz
+        print('Lnu:', Lnu.values)
 
         Lums[jj]    = list(Lnu.values())
 
@@ -201,7 +219,7 @@ def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters 
     return Fnus
 
 
-def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = False, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
+def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = False, Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30', fescs=None):
 
     S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder, aperture)
 
@@ -243,6 +261,13 @@ def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300
             tauVs_BC    = BC_fac * (Metallicities/0.01)
             fesc        = 0.0
 
+        elif Type == 'Total-random-fesc':
+            if len(fescs) != len(Masses):
+                ValueError(f"fescs array should have dimensions ({len(Masses)},)")
+            tauVs_ISM   = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
+            tauVs_BC    = BC_fac * (Metallicities/0.01)
+            fesc        = fescs
+
         elif Type == 'Pure-stellar':
             tauVs_ISM   = np.zeros(len(Masses))
             tauVs_BC    = np.zeros(len(Masses))
@@ -262,7 +287,7 @@ def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300
             ValueError(F"Undefined Type {Type}")
 
 
-        o = m.get_line_luminosity(line, Masses, Ages, Metallicities, tauVs_BC = tauVs_BC, tauVs_ISM = tauVs_ISM, verbose = False, log10t_BC = log10t_BC)
+        o = m.get_line_luminosity(line, Masses, Ages, Metallicities, tauVs_BC = tauVs_BC, tauVs_ISM = tauVs_ISM, verbose = False, log10t_BC = log10t_BC, fesc = fesc)
 
         lum[jj] = o['luminosity']
         EW[jj] = o['EW']
@@ -270,7 +295,7 @@ def get_lines(line, sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300
     return lum, EW
 
 
-def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
+def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30', fescs=None):
 
     S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM = get_data(sim, tag, inp, data_folder, aperture)
 
@@ -305,8 +330,13 @@ def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10
         tauVs_ISM = kappa * MetSurfaceDensities # --- calculate V-band (550nm) optical depth for each star particle
         tauVs_BC = BC_fac * (Metallicities/0.01)
 
-        o = models.generate_SED(model, Masses, Ages, Metallicities, tauVs_ISM = tauVs_ISM, tauVs_BC = tauVs_BC, fesc = 0.0)
-
+        if fescs==None:
+            o = models.generate_SED(model, Masses, Ages, Metallicities, tauVs_ISM = tauVs_ISM, tauVs_BC = tauVs_BC, fesc = 0.0)
+        else:
+            if len(fescs) != len(Masses):
+                ValueError(f"fescs array should have dimensions ({len(Masses)},)")
+            o = models.generate_SED(model, Masses, Ages, Metallicities, tauVs_ISM = tauVs_ISM, tauVs_BC = tauVs_BC, fescs = fescs)
+            
         if jj == 0:
             lam = np.zeros((len(begin), len(o.lam)), dtype = np.float64)        #in Angstrom
             stellar = np.zeros((len(begin), len(o.lam)), dtype = np.float64)
@@ -324,10 +354,18 @@ def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10
 
 
 
-def get_lum(sim, kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, -16, 0.5), inp = 'FLARES', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
+def get_lum(sim, kappa, tag, BC_fac, IMF = 'Chabrier_300',
+            bins = np.arange(-24, -16, 0.5), inp = 'FLARES', LF = True,
+            filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7.,
+            extinction = 'default', data_folder = 'data', aperture='30',
+            fescs=None):
 
     try:
-        Lums = lum(sim, kappa, tag, BC_fac = BC_fac, IMF=IMF, inp=inp, LF=LF, filters=filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
+        Lums = lum(sim, kappa, tag, BC_fac = BC_fac, IMF=IMF, inp=inp,
+                   LF=LF, filters=filters, Type = Type, log10t_BC = log10t_BC,
+                   extinction = extinction, data_folder = data_folder,
+                   aperture = aperture, fescs = fescs)
+        print('got Lums')
 
     except Exception as e:
         Lums = np.ones(len(filters))*np.nan
@@ -353,7 +391,10 @@ def get_lum_all(kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, 
 
         sims = np.arange(0,len(weights))
 
-        calc = partial(get_lum, kappa = kappa, tag = tag, BC_fac = BC_fac, IMF = IMF, bins = bins, inp = inp, LF = LF, filters = filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
+        calc = partial(get_lum, kappa = kappa, tag = tag, BC_fac = BC_fac,
+                       IMF = IMF, bins = bins, inp = inp, LF = LF, filters = filters,
+                       Type = Type, log10t_BC = log10t_BC, extinction = extinction,
+                       data_folder = data_folder, aperture = aperture)
 
         pool = schwimmbad.MultiPool(processes=8)
         dat = np.array(list(pool.map(calc, sims)))
