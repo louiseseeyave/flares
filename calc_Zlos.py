@@ -29,18 +29,16 @@ def old_cal_ZLOS(cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
         g_mass (1d array): gas particle mass
         g_Z (1d array): gas particle metallicity
         g_sml (1d array): gas particle smoothing length
-        lkernel: ??
-        kbins: ??
 
     """
     n = len(cood)
     Z_los_SD = np.zeros(n)
     #Fixing the observer direction as z-axis.
-    xdir, ydir, zdir = 0, 1, 2 # don't understand this
+    xdir, ydir, zdir = 0, 1, 2
     for ii in prange(n):
 
         thispos = cood[ii]
-        ok = np.where(g_cood[:,zdir] > thispos[zdir])[0] # what does this line do?
+        ok = np.where(g_cood[:,zdir] > thispos[zdir])[0]
         thisgpos = g_cood[ok]
         thisgsml = g_sml[ok]
         thisgZ = g_Z[ok]
@@ -48,16 +46,16 @@ def old_cal_ZLOS(cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
         x = thisgpos[:,xdir] - thispos[xdir]
         y = thisgpos[:,ydir] - thispos[ydir]
 
-        b = np.sqrt(x*x + y*y) # is this the impact parameter?
-        boverh = b/thisgsml 
+        b = np.sqrt(x*x + y*y)
+        boverh = b/thisgsml
 
-        ok = np.where(boverh <= 1.)[0] # so we want the smoothing length to be greater than the impact parameter? why?
-        kernel_vals = np.array([lkernel[int(kbins*ll)] for ll in boverh[ok]]) # what's this?
+        ok = np.where(boverh <= 1.)[0]
+        kernel_vals = np.array([lkernel[int(kbins*ll)] for ll in boverh[ok]])
 
         Z_los_SD[ii] = np.sum((thisgmass[ok]*thisgZ[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals) #in units of Msun/Mpc^2
 
-    return Z_los_SD
 
+    return Z_los_SD
 
 def cal_ZLOS_kd(req_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins,
                  dimens=(0, 1, 2)):
