@@ -20,7 +20,6 @@ norm = np.linalg.norm
 def old_cal_ZLOS(cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
 
     """
-
     Compute the los metal surface density (in Msun/Mpc^2) for star particles inside the galaxy taking
     the z-axis as the los.
     Args:
@@ -31,7 +30,6 @@ def old_cal_ZLOS(cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
         g_sml (1d array): gas particle smoothing length
         lkernel: kernel look-up table
         kbins: number of bins in the look-up table
-
     """
     n = len(cood)
     Z_los_SD = np.zeros(n)
@@ -68,11 +66,9 @@ def old_cal_ZLOS(cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
 def cal_ZLOS_kd(req_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins,
                  dimens=(0, 1, 2)):
     """
-
     Compute the los metal surface density (in Msun/Mpc^2) for given
     particles inside the galaxy taking the z-axis as the los. Method used
     in Roper+2022
-
     Args:
         req_cood (3d array): particle coordinates to calculate
                              metal line of sight density for
@@ -81,7 +77,6 @@ def cal_ZLOS_kd(req_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins,
         g_Z (1d array): gas particle metallicity
         g_sml (1d array): gas particle smoothing length
         dimens (tuple: int): tuple of xyz coordinates
-
     """
 
     # Generalise dimensions (function assume LOS along z-axis)
