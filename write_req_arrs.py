@@ -26,7 +26,8 @@ if __name__ == "__main__":
     if inp == 'FLARES':
         if len(num) == 1:
             num =  '0'+num
-        filename = './{}/FLARES_{}_sp_info.hdf5'.format(data_folder, num)
+        #filename = './{}/FLARES_{}_sp_info.hdf5'.format(data_folder, num)
+        filename = '/cosma7/data/dp004/dc-payy1/my_files/flares_pipeline/data/flares.hdf5'
         sim_type = 'FLARES'
 
 
@@ -37,11 +38,13 @@ if __name__ == "__main__":
     else:
         ValueError("Type of input simulation not recognized")
 
-    fl = flares.flares(fname = filename,sim_type = sim_type)
-    fl.create_group(tag)
+        
+    fl = flares.flares(fname = f'/cosma7/data/dp004/dc-seey1/data/flares/temp/flares_{num}.hdf5', sim_type = sim_type)
+    #fl.create_group(tag)
     if inp == 'FLARES':
         dir = fl.directory
-        sim = F"{dir}GEAGLE_{num}/data/"
+        #sim = F"{dir}GEAGLE_{num}/data/"
+        sim = f'/cosma7/data/dp004/FLARES/FLARES-1/flares_{num}/data'
 
     elif inp == 'REF':
         sim = fl.ref_directory
@@ -51,12 +54,12 @@ if __name__ == "__main__":
 
 
     with h5py.File(filename, 'r') as hf:
-        ok_centrals = np.array(hf[tag+'/Galaxy'].get('Central_Indices'), dtype = np.int64)
-        indices = np.array(hf[tag+'/Galaxy'].get('Indices'), dtype = np.int64)
-        dindex = np.array(hf[tag+'/Particle'].get('DM_Index'), dtype = np.int64)
-        sindex = np.array(hf[tag+'/Particle'].get('S_Index'), dtype = np.int64)
-        gindex = np.array(hf[tag+'/Particle'].get('G_Index'), dtype = np.int64)
-        bhindex = np.array(hf[tag+'/Particle'].get('BH_Index'), dtype = np.int64)
+        ok_centrals = np.array(hf[num+'/'+tag+'/Galaxy'].get('Central_Indices'), dtype = np.int64)
+        indices = np.array(hf[num+'/'+tag+'/Galaxy'].get('Indices'), dtype = np.int64)
+        dindex = np.array(hf[num+'/'+tag+'/Particle'].get('DM_Index'), dtype = np.int64)
+        sindex = np.array(hf[num+'/'+tag+'/Particle'].get('S_Index'), dtype = np.int64)
+        gindex = np.array(hf[num+'/'+tag+'/Particle'].get('G_Index'), dtype = np.int64)
+        bhindex = np.array(hf[num+'/'+tag+'/Particle'].get('BH_Index'), dtype = np.int64)
 
     nThreads=8
     a = E.read_header('SUBFIND', sim, tag, 'ExpansionFactor')
@@ -65,6 +68,7 @@ if __name__ == "__main__":
     for ii in range(len(data)):
         name = data[:,0][ii]
         path = data[:,1][ii]
+        dtype = data[:,2][ii]
         unit = data[:,3][ii]
         desc = data[:,4][ii]
         CGS = data[:,5][ii]
@@ -119,7 +123,7 @@ if __name__ == "__main__":
             out = h*(out.astype(np.float64)*(u.g/u.s)).to(u.M_sun/u.yr).value
 
 
-        fl.create_dataset(out, name, '{}/{}'.format(tag, location),
+        fl.create_dataset(out, name, '{}/{}/{}'.format(num, tag, location), dtype=dtype,
                           desc = desc.encode('utf-8'), unit = unit.encode('utf-8'),
                           overwrite=overwrite)
 
