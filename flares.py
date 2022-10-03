@@ -349,8 +349,11 @@ class flares:
         shape = np.shape(values)
 
         if self._check_hdf5(group) is False:
-            raise ValueError("Group does not exist")
-            return False
+            with h5py.File(self.fname, 'a') as h5file:
+                new_group = h5file.create_group(group)
+            print(f'creating group {group}..................')
+            # raise ValueError("Group does not exist")
+            # return False
 
         try:
             with h5py.File(self.fname, mode='a') as h5f:
