@@ -60,7 +60,7 @@ def old_cal_HLOS(cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins,
         ok = np.where(boverh <= 1.)[0] # want smoothing length > impact parameter
         kernel_vals = np.array([lkernel[int(kbins*ll)] for ll in boverh[ok]])
 
-        H_los_SD[ii] = np.sum((thisgmass[ok]*thisgH[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals) #in units of Msun/pc^2
+        H_los_SD[ii] = np.sum((thisgmass[ok]*thisgH[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals) #in units of Msun/Mpc^2
         #if frac==True:
         #    H_los_SD[ii] = np.sum((thisgH[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals) #in units of /pc^2
 
@@ -136,7 +136,7 @@ def new_cal_HLOS(cood, g_cood, g_mass, g_hfrac, g_temp, g_sml, lkernel,
         # get kernel values from look-up table
         kernel_vals = np.array([lkernel[int(kbins*ll)] for ll in boverh[ok]])
 
-        # calculate H column density [Msun/pc^2]
+        # calculate H column density [Msun/Mpc^2]
         H_los_SD[ii] = np.sum((thisgmass[ok]*thisgH[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals)
 
     return H_los_SD
@@ -365,8 +365,13 @@ def get_HLOS(jj, req_coords, begin, end, ap, G_coords, G_mass, G_Z, G_H,
 if __name__ == "__main__":
 
 
-    ii, tag, inp, data_folder = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+    # UNCOMMENT THIS IF USING SBATCH
+    # ii, tag, inp, data_folder = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
+    #
+    # test:
+    ii, tag, inp, data_folder = 0, '010_z005p000', 'FLARES', 'data'
+    
     # inp & data_folder don't matter anymore
 
     #sph kernel approximations
@@ -430,14 +435,40 @@ if __name__ == "__main__":
 
     S_coords, G_coords, G_mass, G_sml, G_Z, G_H, G_Temp, S_len, G_len, BH_len, BH_coords, S_ap, G_ap, BH_ap = get_data(ii, tag, inp=inp, data_folder=data_folder, aperture=aperture)
 
-    print('G_Z:')
-    print(np.shape(G_Z))
-    print(G_Z[0:5])
+
+    # debugging stuff ------------------------------------------------
+    print('S_coords:')
+    #print(np.shape(S_coords))
+    #S_coords = np.transpose(S_coords)
+    print(np.shape(S_coords))
+    print(np.shape(S_coords[2]))
+    print(np.amin(S_coords[2]), np.amax(S_coords[2]))
+
+    print('G_coords:')
+    #print(np.shape(S_coords))
+    #S_coords = np.transpose(S_coords)
+    print(np.shape(G_coords))
+    print(np.shape(G_coords[2]))
+    print(np.amin(G_coords[2]), np.amax(G_coords[2]))
+
+    print('G_sml:')
+    #print(np.shape(S_coords))
+    #S_coords = np.transpose(S_coords)
+    print(np.shape(G_sml))
+    print(np.amin(G_sml), np.amax(G_sml))
+
+    print('G_mass:')
+    #print(np.shape(S_coords))
+    #S_coords = np.transpose(S_coords)
+    print(np.shape(G_mass))
+    print(np.amin(G_mass), np.amax(G_mass))
     
     print('G_H:')
     print(np.shape(G_H))
     print(G_H[0:5])
-    
+
+    exit()
+    # debugging stuff ------------------------------------------------
     
     # S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_len, BH_coords, S_ap, G_ap, BH_ap = get_data(ii, tag, inp=inp, data_folder=data_folder, aperture=aperture)
 
