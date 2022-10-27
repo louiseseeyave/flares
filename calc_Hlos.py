@@ -86,9 +86,16 @@ def new_cal_HLOS(cood, g_cood, g_mass, g_hfrac, g_temp, g_sml, lkernel,
 
     """
 
+    # print('s_coords:', cood[0:5])
+    # print('g_coords:', g_cood[0:5])
+    # print('g_mass:', g_mass[0:5])
+    # print('g_hfrac:', g_hfrac[0:5])
+    # print('g_temp:', g_temp[0:5])
+    # print('g_sml:', g_sml[0:5])
+
     # get array to store H column density
     n = len(cood)
-    print('no. of stellar particles:', n)
+    #print('no. of stellar particles:', n)
     H_los_SD = np.zeros(n)
 
     # associate direction with column in coord array
@@ -99,20 +106,21 @@ def new_cal_HLOS(cood, g_cood, g_mass, g_hfrac, g_temp, g_sml, lkernel,
         # get H column density this stellar particle
         thispos = cood[ii]
 
-        print('no. of gas particles:', len(g_cood))
+        #print('no. of gas particles:', len(g_cood))
 
         # remove gas particles behind star (z dir)
         stellar_z = thispos[zdir]
         ok = g_cood[:,zdir] > stellar_z
+        #print('len ok:', len(ok))
 
-        print('no. of gas particles after z cut:', np.sum(ok))
+        #print('no. of gas particles after z cut:', np.sum(ok))
         
         # remove gas particles with temp > 1.5*10^4K (i.e. ionised)
         max_temp = 1.5*10**4
         ok = np.logical_and(ok, g_temp < max_temp)
 
-        print('no. of gas particles after temp cut:', np.sum(ok))
-        print('ok temps:', (g_temp[ok])[0:5])
+        #print('no. of gas particles after temp cut:', np.sum(ok))
+        #print('ok temps:', (g_temp[ok])[0:5])
         
         # get quantities for relevant gas particles
         thisgpos = g_cood[ok]
@@ -132,12 +140,16 @@ def new_cal_HLOS(cood, g_cood, g_mass, g_hfrac, g_temp, g_sml, lkernel,
         # remove gas particles if smoothing length < impact parameter
         ok = boverh <= 1.
         g_len = np.sum(ok)
+        #print('g_len:', g_len)
 
         # get kernel values from look-up table
         kernel_vals = np.array([lkernel[int(kbins*ll)] for ll in boverh[ok]])
+        #print('kernel_vals:', kernel_vals[0:5])
 
         # calculate H column density [Msun/Mpc^2]
         H_los_SD[ii] = np.sum((thisgmass[ok]*thisgH[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals)
+
+        #print('H_LOS range:', np.amin(H_los_SD[ii]), np.amax(H_los_SD[ii]))
 
     return H_los_SD
     #return H_los_SD, g_len, stellar_z
@@ -339,6 +351,9 @@ def get_relevant_particles(ii, tag, inp = 'FLARES', data_folder='data/', apertur
 def get_HLOS(jj, req_coords, begin, end, ap, G_coords, G_mass, G_Z, G_H,
              G_Temp, G_sml, gbegin, gend, lkernel, kbins, G_ap):
 
+    #print('len req_coords', len(req_coords))
+    #print(len(req_coords[begin[jj]:end[jj]]))
+    #print(len(req_coords[begin[jj]:end[jj]][ap[begin[jj]:end[jj]]]))
 
     # stellar particle coordinates
     this_coords = req_coords[begin[jj]:end[jj]][ap[begin[jj]:end[jj]]]
@@ -359,6 +374,7 @@ def get_HLOS(jj, req_coords, begin, end, ap, G_coords, G_mass, G_Z, G_H,
     H_los_SD = new_cal_HLOS(this_coords, this_gcoords, this_gmass, this_gH,
                             this_gtemp, this_gsml, lkernel, kbins)*conv
 
+    #print(len(H_los_SD))
     return H_los_SD
 
 
@@ -467,10 +483,17 @@ if __name__ == "__main__":
     print(np.shape(G_H))
     print(G_H[0:5])
 
-    exit()
+    print('G_Temp:')
+    print(np.shape(G_Temp))
+    print(G_Temp[0:5])
+    
     # debugging stuff ------------------------------------------------
     
     # S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_len, BH_coords, S_ap, G_ap, BH_ap = get_data(ii, tag, inp=inp, data_folder=data_folder, aperture=aperture)
+
+    print('sum S_len:', np.sum(S_len))
+    print('len S_ap:', len(S_ap))
+    print('len S_coords:', len(S_coords))
 
     if len(S_len)==0:
         print (F"No data to write in region {num} for tag {tag}")
@@ -487,11 +510,20 @@ if __name__ == "__main__":
         bhbegin, bhend = get_len(BH_len)
         gbegin, gend = get_len(G_len)
 
+        print('len S_coords:', len(S_coords))
         # print("calc shapes", sbegin.shape, send.shape, gbegin.shape, gend.shape)
 
         start = timeit.default_timer()
         pool = schwimmbad.SerialPool()
 
+        # debugging code
+        #calc_Hlos = get_HLOS(0, req_coords=S_coords, ap=S_ap, begin=sbegin,
+        #                    end=send, G_coords=G_coords, G_mass=G_mass,
+        #                    G_Z=G_Z, G_H=G_H, G_Temp=G_Temp, G_sml=G_sml,
+        #                    gbegin=gbegin, gend=gend, lkernel=lkernel,
+         #                   kbins=kbins, G_ap=G_ap)
+        
+        # --------------
 
         calc_Hlos = partial(get_HLOS, req_coords=S_coords, ap=S_ap, begin=sbegin,
                             end=send, G_coords=G_coords, G_mass=G_mass,
@@ -514,9 +546,10 @@ if __name__ == "__main__":
         stop = timeit.default_timer()
         print (F"Took {np.round(stop - start, 6)} seconds")
 
-
+    exit() # -----------------------------------
     print(F"Writing out line-of-sight metal density of {tag}")
 
+    # THIS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     out_slos = np.zeros(len(S_coords))
     out_slos[S_ap] = S_los
 
