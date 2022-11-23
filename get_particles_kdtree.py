@@ -34,6 +34,7 @@ if __name__ == "__main__":
         dict = {}
         dict['stellar_neighbours'] = {}
         dict['gas_neighbours'] = {}
+        dict['bh_neighbours'] = {}
         with open(f'data_valid_particles/flares_{rg}_{snap}_30pkpc.pkl', 'wb') as f:
             pickle.dump(dict, f)
         print("a dictionary with None values has been saved")
@@ -54,9 +55,13 @@ if __name__ == "__main__":
     g_coords = E.read_array('PARTDATA', sim, snap, '/PartType0/Coordinates',
                             noH=True, physicalUnits=True, numThreads=nThreads,
                             CGS=False)
-    bh_coords = E.read_array('PARTDATA', sim, snap, '/PartType5/Coordinates',
-                             noH=True, physicalUnits=True, numThreads=nThreads,
-                             CGS=False)
+    try:
+        bh_coords = E.read_array('PARTDATA', sim, snap, '/PartType5/Coordinates',
+                                 noH=True, physicalUnits=True, numThreads=nThreads,
+                                 CGS=False)
+    except ValueError:
+        print('no black holes in this galaxy')
+        bh_coords = []
     s_coords = np.array(s_coords, dtype=np.float64)
     g_coords = np.array(g_coords, dtype=np.float64)
     bh_coords = np.array(bh_coords, dtype=np.float64)
@@ -98,11 +103,12 @@ if __name__ == "__main__":
     g_query = tree.query_ball_point(g_coords, r=0.03, p=2)
     t1 = time.time()
     print(f'that took {t1-t0} s')
-    print('querying for black hole particles...')
-    t0 = time.time()
-    bh_query = tree.query_ball_point(bh_coords, r=0.03, p=2)
-    t1 = time.time()
-    print(f'that took {t1-t0} s')
+    if len(bh_coords)!=0: # if there are black holes in this galaxy
+        print('querying for black hole particles...')
+        t0 = time.time()
+        bh_query = tree.query_ball_point(bh_coords, r=0.03, p=2)
+        t1 = time.time()
+        print(f'that took {t1-t0} s')
 
     # collect particles in each galaxy
     n = len(cop)
@@ -126,14 +132,15 @@ if __name__ == "__main__":
             g_nbours[_ind].append(g_ind)
     t1 = time.time()
     print(f'that took {t1-t0} s')
-            
-    print('grouping black hole particles...')
-    t0 = time.time()
-    for bh_ind, parts in enumerate(bh_query):
-        for _ind in parts:
-            bh_nbours[_ind].append(bh_ind)
-    t1 = time.time()
-    print(f'that took {t1-t0} s')
+
+    if len(bh_coords)!=0: # if there are black holes in this galaxy
+        print('grouping black hole particles...')
+        t0 = time.time()
+        for bh_ind, parts in enumerate(bh_query):
+            for _ind in parts:
+                bh_nbours[_ind].append(bh_ind)
+        t1 = time.time()
+        print(f'that took {t1-t0} s')
 
     # combine dictionaries into one
     dict = {}
