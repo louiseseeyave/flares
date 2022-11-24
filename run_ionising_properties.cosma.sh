@@ -30,6 +30,17 @@ for ii in ${array[@]}
     python3 write_ionising_properties.py $SLURM_ARRAY_TASK_ID $ii FLARES $output_folder
 done
 
+
+# ### For PERIODIC boxes: REF and AGNdT9
+# array=(002_z009p993 003_z008p988 004_z008p075 005_z007p050 006_z005p971 008_z005p037, 010_z003p984 011_z003p528, 012_z003p017)
+#
+#
+# for ii in ${array[@]}
+#   do
+#     python3 write_ionising_properties.py 0 $ii REF $output_folder
+# done
+
+
 echo "Job done, info follows..."
 sacct -j $SLURM_JOBID --format=JobID,JobName,Partition,MaxRSS,Elapsed,ExitCode
 exit
