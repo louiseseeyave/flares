@@ -10,7 +10,7 @@
 
 
 module purge
-module load gnu_comp/7.3.0 openmpi/3.0.1 hdf5/1.10.3 python/3.6.5
+module load gnu_comp/10.2.0 openmpi/4.1.1 hdf5/1.10.6 python/3.9.1-C7
 # module load gnu_comp/10.2.0 openmpi/4.1.1 hdf5/1.10.6 pythonconda3/2020-02
 
 # arg1 is the region number (in case of FLARES, leave it as some number for periodic boxes), arg2 is the relevant tag (snap number), arg3 is FLARES/REF/AGNdT9, arg4 is the text file with the relevant arrys to be written into the hdf5 file and agr5 is the folder you want the files to be saved
