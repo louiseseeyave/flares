@@ -16,7 +16,8 @@ paths = [('Galaxy','IonisingEmissivity'), ('Galaxy','IonisingPPE'),
 
 # master file that data will be added to:
 # master = '/cosma7/data/dp004/dc-seey1/data/flares/scripts/flares.hdf5'
-master = '/cosma7/data/dp004/dc-payy1/my_files/flares_pipeline/data/flares.hdf5'
+# master = '/cosma7/data/dp004/dc-payy1/my_files/flares_pipeline/data/flares.hdf5'
+master = '/cosma7/data/dp004/dc-seey1/data/flares/steve/flares.hdf5'
 
 m = h5py.File(master, 'a')
 
