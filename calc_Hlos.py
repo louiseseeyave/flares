@@ -4,7 +4,7 @@
 
 import timeit, sys
 import numpy as np
-from numba import jit, njit, float64, int32, prange
+# from numba import jit, njit, float64, int32, prange
 import h5py
 from functools import partial
 import schwimmbad

@@ -29,7 +29,7 @@ array=(011_z004p770 010_z005p000 009_z006p000 008_z007p000 007_z008p000 006_z009
 
 for ii in ${array[@]}
   do
-    python3 get_fesc_near_bh.py $SLURM_ARRAY_TASK_ID $ii
+    python3 get_fesc_near_bh_cylinder.py $SLURM_ARRAY_TASK_ID $ii
 done
 
 

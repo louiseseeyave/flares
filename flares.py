@@ -2,7 +2,7 @@ import os
 from functools import partial
 
 import numpy as np
-from numba import jit, njit, float64, int32, prange
+# from numba import jit, njit, float64, int32, prange
 import h5py
 from astropy.cosmology import Planck13 as cosmo
 from astropy import units as u
