@@ -11,26 +11,28 @@ from download_methods import save_to_hdf5
 
 # requires the master file to have already been generated
 
+# you might need to update synthobs as I added a new function there
 
-def calculate_U(Q_avg, n_h=100):
 
-    """
-    get ionisation parameter
-    (taken from synthesizer, can just import the function in the future)
+# def calculate_U(Q_avg, n_h=100):
+
+#     """
+#     get ionisation parameter
+#     (taken from synthesizer, can just import the function in the future)
     
-    Args
-    Q - units: s^-1
-    n_h - units: cm^-3
-    Returns
-    U - units: dimensionless
-    """
+#     Args
+#     Q - units: s^-1
+#     n_h - units: cm^-3
+#     Returns
+#     U - units: dimensionless
+#     """
     
-    alpha_B = 2.59e-13 # cm^3 s^-1
-    c_cm = 2.99e8 * 100 # cm s^-1
-    epsilon = 1.
+#     alpha_B = 2.59e-13 # cm^3 s^-1
+#     c_cm = 2.99e8 * 100 # cm s^-1
+#     epsilon = 1.
 
-    return ((alpha_B**(2./3)) / c_cm) *\
-            ((3 * Q_avg * (epsilon**2) * n_h) / (4 * np.pi))**(1./3)
+#     return ((alpha_B**(2./3)) / c_cm) *\
+#             ((3 * Q_avg * (epsilon**2) * n_h) / (4 * np.pi))**(1./3)
 
     
 if __name__ == "__main__":
@@ -91,7 +93,7 @@ if __name__ == "__main__":
 
     
     model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300')
-
+    
     
     for jj in range(len(sbegin)):
 
@@ -104,10 +106,21 @@ if __name__ == "__main__":
 
         # get ionising emissivity [log10(s^-1)]
         log10Q[jj] = models.generate_log10Q(model, this_smass, this_age, this_sZ)
+  
         # get ionising photon production efficiency [log10(erg^-1 Hz)]
         log10xi[jj] = log10Q[jj] - L_uv[jj]
+
         # get ionisation parameter
-        U[jj] = calculate_U(10**log10Q[jj])
+        ref_age = np.full(this_smass.shape, 1.) # Myr
+        ref_sZ = np.full(this_smass.shape, 0.01)
+        ref_U = 0.01
+        ref_log10Qs = models.generate_particle_log10Q(model, this_smass, ref_age, ref_sZ)
+        ref_Qs = 10**ref_log10Qs
+        log10Qs = models.generate_particle_log10Q(model, this_smass, this_age, this_sZ)
+        Qs = 10**log10Qs
+        Us = ref_U * (Qs/ref_Qs)**(1/3)
+        U[jj] = np.sum(Qs*Us)/np.sum(Qs)
+
         # get mean weighted metallicity
         YS_massweightedZ[jj] = np.sum(this_ysmass*this_ysZ)/np.sum(this_ysmass)
 
