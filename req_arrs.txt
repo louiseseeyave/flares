@@ -42,5 +42,8 @@
 #H_frac_smooth,/PartType0/SmoothedElementAbundance/Hydrogen,float64,No units,Gas particle smoothed hydrogen abundance,False
 #He_frac_smooth,/PartType0/SmoothedElementAbundance/Helium,float64,No units,Gas particle smoothed helium abundance,False
 
-G_Temp,/PartType0/Temperature,float64,K,Gas particle temperature,False
-G_MaxTemp,/PartType0/MaximumTemperature,float64,K,Gas particle highest temperature ever reached,False
+#G_Temp,/PartType0/Temperature,float64,K,Gas particle temperature,False
+#G_MaxTemp,/PartType0/MaximumTemperature,float64,K,Gas particle highest temperature ever reached,False
+
+O_Abundance_smooth,/PartType4/SmoothedElementAbundance/Oxygen,float64,No units,Star particle smoothed oxygen abundance,False
+Fe_Abundance_smooth,/PartType4/SmoothedElementAbundance/Iron,float64,No units,Star particle smoothed iron abundance,False
