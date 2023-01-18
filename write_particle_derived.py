@@ -42,11 +42,11 @@ if __name__ == "__main__":
 
 
     with h5py.File(filename, 'r') as hf:
-        # dindex  = np.array(hf[tag+'/Particle'].get('DM_Index'), dtype = np.int64)
+        dindex  = np.array(hf[tag+'/Particle'].get('DM_Index'), dtype = np.int64)
         sindex  = np.array(hf[tag+'/Particle'].get('S_Index'), dtype = np.int64)
         gindex  = np.array(hf[tag+'/Particle'].get('G_Index'), dtype = np.int64)
         bhindex = np.array(hf[tag+'/Particle'].get('BH_Index'), dtype = np.int64)
-        # dnum    = np.array(hf[tag+'/Galaxy'].get('DM_Length'), dtype = np.int64)
+        dnum    = np.array(hf[tag+'/Galaxy'].get('DM_Length'), dtype = np.int64)
         snum    = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
         gnum    = np.array(hf[tag+'/Galaxy'].get('G_Length'), dtype = np.int64)
         bhnum   = np.array(hf[tag+'/Galaxy'].get('BH_Length'), dtype = np.int64)
@@ -57,11 +57,8 @@ if __name__ == "__main__":
 
     # SMass, GMass, DMass, total_SFR = \
 
-    # SMass, GMass, BHMass, DMass = \
-    #    recalculate_derived_subhalo_properties(inp, num, tag, snum, gnum, dnum, bhnum, sindex, gindex, bhindex, dindex, data_folder=data_folder)
-
-    SMass, GMass, BHMass = \
-        recalculate_derived_subhalo_properties(inp, num, tag, snum, gnum, bhnum, sindex, gindex, bhindex, data_folder=data_folder)
+    SMass, GMass, BHMass, DMass = \
+       recalculate_derived_subhalo_properties(inp, num, tag, snum, gnum, dnum, bhnum, sindex, gindex, bhindex, dindex, data_folder=data_folder)
 
 
     save_to_hdf5(num, tag, SMass, 'Mstar', 'Total stellar mass of the subhalo', group='Galaxy', inp=inp,
@@ -70,8 +67,8 @@ if __name__ == "__main__":
                     data_folder=data_folder, overwrite=True)
     save_to_hdf5(num, tag, BHMass, 'Mbh', 'Total BH mass of the subhalo', group='Galaxy', inp=inp,
                     data_folder=data_folder, overwrite=True)
-    # save_to_hdf5(num, tag, DMass, 'Mdm', 'Total dark matter mass of the subhalo', group='Galaxy', inp=inp,
-    #                data_folder=data_folder, overwrite=True)
+    save_to_hdf5(num, tag, DMass, 'Mdm', 'Total dark matter mass of the subhalo', group='Galaxy', inp=inp,
+                   data_folder=data_folder, overwrite=True)
     # save_to_hdf5(num, tag, total_SFR, 'SFR',
     #              'Total instantaneous star formation rate of the subhalo', group='Galaxy', inp=inp)
 
