@@ -42,11 +42,11 @@ if __name__ == "__main__":
 
 
     with h5py.File(filename, 'r') as hf:
-        dindex  = np.array(hf[tag+'/Particle'].get('DM_Index'), dtype = np.int64)
+        # dindex  = np.array(hf[tag+'/Particle'].get('DM_Index'), dtype = np.int64)
         sindex  = np.array(hf[tag+'/Particle'].get('S_Index'), dtype = np.int64)
         gindex  = np.array(hf[tag+'/Particle'].get('G_Index'), dtype = np.int64)
         bhindex = np.array(hf[tag+'/Particle'].get('BH_Index'), dtype = np.int64)
-        dnum    = np.array(hf[tag+'/Galaxy'].get('DM_Length'), dtype = np.int64)
+        # dnum    = np.array(hf[tag+'/Galaxy'].get('DM_Length'), dtype = np.int64)
         snum    = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
         gnum    = np.array(hf[tag+'/Galaxy'].get('G_Length'), dtype = np.int64)
         bhnum   = np.array(hf[tag+'/Galaxy'].get('BH_Length'), dtype = np.int64)
@@ -56,8 +56,12 @@ if __name__ == "__main__":
 
 
     # SMass, GMass, DMass, total_SFR = \
-    SMass, GMass, BHMass, DMass = \
-        recalculate_derived_subhalo_properties(inp, num, tag, snum, gnum, dnum, bhnum, sindex, gindex, bhindex, dindex, data_folder=data_folder)
+
+    # SMass, GMass, BHMass, DMass = \
+    #    recalculate_derived_subhalo_properties(inp, num, tag, snum, gnum, dnum, bhnum, sindex, gindex, bhindex, dindex, data_folder=data_folder)
+
+    SMass, GMass, BHMass = \
+        recalculate_derived_subhalo_properties(inp, num, tag, snum, gnum, bhnum, sindex, gindex, bhindex, data_folder=data_folder)
 
 
     save_to_hdf5(num, tag, SMass, 'Mstar', 'Total stellar mass of the subhalo', group='Galaxy', inp=inp,
@@ -66,8 +70,8 @@ if __name__ == "__main__":
                     data_folder=data_folder, overwrite=True)
     save_to_hdf5(num, tag, BHMass, 'Mbh', 'Total BH mass of the subhalo', group='Galaxy', inp=inp,
                     data_folder=data_folder, overwrite=True)
-    save_to_hdf5(num, tag, DMass, 'Mdm', 'Total dark matter mass of the subhalo', group='Galaxy', inp=inp,
-                    data_folder=data_folder, overwrite=True)
+    # save_to_hdf5(num, tag, DMass, 'Mdm', 'Total dark matter mass of the subhalo', group='Galaxy', inp=inp,
+    #                data_folder=data_folder, overwrite=True)
     # save_to_hdf5(num, tag, total_SFR, 'SFR',
     #              'Total instantaneous star formation rate of the subhalo', group='Galaxy', inp=inp)
 
@@ -75,7 +79,7 @@ if __name__ == "__main__":
     timescales = [1,5,10,20,50,100,200]
     aperture_sizes = [1, 3, 5, 10, 20, 30, 40, 50, 70, 100, 1e4]
     aperture_labels = np.hstack([aperture_sizes[:-1], 'total'])
-    SFR, Mstar, S_ap_bool, G_ap_bool, BH_ap_bool = get_recent_SFR(num,tag,t=timescales,aperture_size=aperture_sizes,inp=inp, data_folder=data_folder)
+    SFR, Mstar, Mgas, S_ap_bool, G_ap_bool, BH_ap_bool = get_recent_SFR(num,tag,t=timescales,aperture_size=aperture_sizes,inp=inp, data_folder=data_folder)
     inst_SFR = get_aperture_inst_SFR(num,tag,aperture_size=aperture_sizes,inp=inp, data_folder=data_folder)
 
 
@@ -84,7 +88,11 @@ if __name__ == "__main__":
                      f'Stellar mass contained within a {_ap} pkpc aperture',
                      group=f'Galaxy/Mstar_aperture', inp=inp, unit='1E10 Msun', data_folder=data_folder, overwrite=True)
 
-        save_to_hdf5(num, tag, inst_SFR[_ap], f'SFR_inst',
+        save_to_hdf5(num, tag, Mgas[_ap], f'{_ap}',
+                     f'Gas mass contained within a {_ap} pkpc aperture',
+                     group=f'Galaxy/Mgas_aperture', inp=inp, unit='1E10 Msun', data_folder=data_folder, overwrite=True)
+
+        save_to_hdf5(num, tag, inst_SFR[_ap], f'inst',
                      f'Instantaneous star formation rate contained within a {_ap} pkpc aperture',
                      group=f'Galaxy/SFR_aperture/{_ap}', inp=inp, unit='Msun/yr', data_folder=data_folder, overwrite=True)
 
@@ -123,11 +131,12 @@ if __name__ == "__main__":
     G_ap_bool = G_ap_bool[5]
 
     with h5py.File(filename, 'r') as hf:
-        S_mass  = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)*1e10
-        G_mass  = np.array(hf[F'{tag}/Particle'].get('G_Mass'), dtype = np.float64)*1e10
-        S_age   = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64) #Age is in Gyr,
-        S_Z     = np.array(hf[F'{tag}/Particle'].get('S_Z_smooth'), dtype = np.float64)
-        G_Z     = np.array(hf[F'{tag}/Particle'].get('G_Z_smooth'), dtype = np.float64)
+        S_mass          = np.array(hf[F'{tag}/Particle'].get('S_MassInitial'), dtype = np.float64)*1e10
+        S_currentmass   = np.array(hf[F'{tag}/Particle'].get('S_Mass'), dtype = np.float64)*1e10
+        G_mass          = np.array(hf[F'{tag}/Particle'].get('G_Mass'), dtype = np.float64)*1e10
+        S_age           = np.array(hf[F'{tag}/Particle'].get('S_Age'), dtype = np.float64) #Age is in Gyr,
+        S_Z             = np.array(hf[F'{tag}/Particle'].get('S_Z_smooth'), dtype = np.float64)
+        G_Z             = np.array(hf[F'{tag}/Particle'].get('G_Z_smooth'), dtype = np.float64)
 
 
     sbegin = np.zeros(len(snum), dtype = np.int64)
@@ -142,6 +151,10 @@ if __name__ == "__main__":
 
     S_massweightedage   = np.zeros(len(sbegin))
     S_massweightedZ     = np.zeros(len(sbegin))
+
+    S_currentmassweightedage   = np.zeros(len(sbegin))
+    S_currentmassweightedZ     = np.zeros(len(sbegin))
+
     G_massweightedZ     = np.zeros(len(sbegin))
     DTM                 = np.zeros(len(sbegin))
 
@@ -149,21 +162,30 @@ if __name__ == "__main__":
 
         this_age    = S_age[sbegin[jj]:send[jj]][S_ap_bool[sbegin[jj]:send[jj]]]
         this_smass  = S_mass[sbegin[jj]:send[jj]][S_ap_bool[sbegin[jj]:send[jj]]]
+        this_scmass = S_currentmass[sbegin[jj]:send[jj]][S_ap_bool[sbegin[jj]:send[jj]]]
         this_gmass  = G_mass[gbegin[jj]:gend[jj]][G_ap_bool[gbegin[jj]:gend[jj]]]
         this_sZ     = S_Z[sbegin[jj]:send[jj]][S_ap_bool[sbegin[jj]:send[jj]]]
         this_gZ     = G_Z[gbegin[jj]:gend[jj]][G_ap_bool[gbegin[jj]:gend[jj]]]
 
-        S_massweightedage[jj]   = np.nansum(this_smass*this_age)/np.nansum(this_smass)
-        S_massweightedZ[jj]     = np.sum(this_smass*this_sZ)/np.sum(this_smass)
-        G_massweightedZ[jj]     = np.sum(this_gmass*this_gZ)/np.sum(this_gmass)
+        S_massweightedage[jj]           = np.nansum(this_smass*this_age)/np.nansum(this_smass)
+        S_massweightedZ[jj]             = np.sum(this_smass*this_sZ)/np.sum(this_smass)
+        S_currentmassweightedage[jj]    = np.nansum(this_scmass*this_age)/np.nansum(this_scmass)
+        S_currentmassweightedZ[jj]      = np.sum(this_scmass*this_sZ)/np.sum(this_scmass)
+        G_massweightedZ[jj]             = np.sum(this_gmass*this_gZ)/np.sum(this_gmass)
 
         DTM[jj] = DTM_fit(np.nanmean(this_gZ), S_massweightedage[jj]*1e3)
 
     save_to_hdf5(num, tag, S_massweightedage, 'MassWeightedStellarAge',
                  'Initial mass-weighted stellar age within 30 pkpc aperture',
                  group=f'Galaxy/StellarAges', inp=inp, unit='Gyr', data_folder=data_folder, overwrite=True)
+    save_to_hdf5(num, tag, S_currentmassweightedage, 'CurrentMassWeightedStellarAge',
+                 'Initial mass-weighted stellar age within 30 pkpc aperture',
+                 group=f'Galaxy/StellarAges', inp=inp, unit='Gyr', data_folder=data_folder, overwrite=True)
 
     save_to_hdf5(num, tag, S_massweightedZ, 'MassWeightedStellarZ',
+                 'Initial mass-weighted stellar metallicity within 30 pkpc aperture',
+                 group=f'Galaxy/Metallicity', inp=inp, unit='No unit', data_folder=data_folder, overwrite=True)
+    save_to_hdf5(num, tag, S_currentmassweightedZ, 'CurrentMassWeightedStellarZ',
                  'Initial mass-weighted stellar metallicity within 30 pkpc aperture',
                  group=f'Galaxy/Metallicity', inp=inp, unit='No unit', data_folder=data_folder, overwrite=True)
     save_to_hdf5(num, tag, G_massweightedZ, 'MassWeightedGasZ',
