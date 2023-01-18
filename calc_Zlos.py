@@ -30,15 +30,19 @@ def old_cal_ZLOS(cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
         g_mass (1d array): gas particle mass
         g_Z (1d array): gas particle metallicity
         g_sml (1d array): gas particle smoothing length
+        lkernel: kernel look-up table
+        kbins: number of bins in the look-up table
 
     """
     n = len(cood)
     Z_los_SD = np.zeros(n)
-    #Fixing the observer direction as z-axis.
+    # Fixing the observer direction as z-axis.
+    # Associate direction with column in coord array
     xdir, ydir, zdir = 0, 1, 2
     for ii in prange(n):
 
         thispos = cood[ii]
+        # Don't need gas particles behind stellar particle (z dir)
         ok = np.where(g_cood[:,zdir] > thispos[zdir])[0]
         thisgpos = g_cood[ok]
         thisgsml = g_sml[ok]
@@ -47,16 +51,20 @@ def old_cal_ZLOS(cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
         x = thisgpos[:,xdir] - thispos[xdir]
         y = thisgpos[:,ydir] - thispos[ydir]
 
+        # Get impact parameter and divide by smoothing length
         b = np.sqrt(x*x + y*y)
         boverh = b/thisgsml
 
+        # Want smoothing length > impact parameter
         ok = np.where(boverh <= 1.)[0]
+
+        # Get kernel values from look-up table
         kernel_vals = np.array([lkernel[int(kbins*ll)] for ll in boverh[ok]])
 
         Z_los_SD[ii] = np.sum((thisgmass[ok]*thisgZ[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals) #in units of Msun/Mpc^2
 
-
     return Z_los_SD
+
 
 def cal_ZLOS_kd(req_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins,
                  dimens=(0, 1, 2)):

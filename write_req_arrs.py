@@ -72,6 +72,7 @@ if __name__ == "__main__":
     for ii in range(len(data)):
         name = data[:,0][ii]
         path = data[:,1][ii]
+        dtype = data[:,2][ii]
         unit = data[:,3][ii]
         desc = data[:,4][ii]
         CGS  = data[:,5][ii]
@@ -125,8 +126,7 @@ if __name__ == "__main__":
         if name=='BH_Mdot':
             out = h*(out.astype(np.float64)*(u.g/u.s)).to(u.M_sun/u.yr).value
 
-
-        fl.create_dataset(out, name, '{}/{}'.format(tag, location),
+        fl.create_dataset(out, name, '{}/{}/{}'.format(num, tag, location), dtype=dtype,
                           desc = desc.encode('utf-8'), unit = unit.encode('utf-8'),
                           overwrite=overwrite)
 
