@@ -19,7 +19,7 @@ if __name__ == "__main__":
         filename = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
         sim_type = inp
 
-    elif (inp == 'REF') or (inp == 'AGNdT9'):
+    elif (inp == 'REF') or (inp == 'AGNdT9') or ('RECAL' in inp):
         filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
         num = '00'

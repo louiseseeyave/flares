@@ -19,7 +19,7 @@ def get_simtype(inp):
     if inp == 'FLARES':
         sim_type = 'FLARES'
 
-    elif inp == 'REF' or inp == 'AGNdT9':
+    elif (inp == 'REF') or (inp == 'AGNdT9') or ('RECAL25' in inp):
         sim_type = 'PERIODIC'
 
     return sim_type
@@ -35,7 +35,7 @@ def lum_write_out(num, tag, kappa, BC_fac, filters = flare.filters.TH[:-1], inp 
         filename = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
         sim_type = inp
 
-    elif (inp == 'REF') or (inp == 'AGNdT9'):
+    elif (inp == 'REF') or (inp == 'AGNdT9') or ('RECAL' in inp):
         filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
         num = '00'
@@ -93,7 +93,7 @@ def flux_write_out(num, tag, kappa, BC_fac, filters = flare.filters.ACS, inp = '
         filename = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
         sim_type = inp
 
-    elif (inp == 'REF') or (inp == 'AGNdT9'):
+    elif (inp == 'REF') or (inp == 'AGNdT9') or ('RECAL' in inp):
         filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
 
@@ -143,7 +143,7 @@ def line_write_out(num, lines, tag, kappa, BC_fac, label, inp = 'FLARES', LF = F
         filename = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
         sim_type = inp
 
-    elif (inp == 'REF') or (inp == 'AGNdT9'):
+    elif (inp == 'REF') or (inp == 'AGNdT9') or ('RECAL' in inp):
         filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
         num='00'
@@ -209,7 +209,7 @@ def sed_write_out(num, tag, kappa, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300',
         filename = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
         sim_type = inp
 
-    elif (inp == 'REF') or (inp == 'AGNdT9'):
+    elif (inp == 'REF') or (inp == 'AGNdT9') or ('RECAL' in inp):
         filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
         num='00'
