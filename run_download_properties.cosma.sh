@@ -10,16 +10,17 @@
 
 
 module purge
-module load gnu_comp/7.3.0 openmpi/3.0.1 hdf5/1.10.3 python/3.6.5
+module load gnu_comp/7.3.0 openmpi/3.0.1 hdf5/1.10.3 python/3.9.1-C7
 # module load gnu_comp/10.2.0 openmpi/4.1.1 hdf5/1.10.6 pythonconda3/2020-02
 
 #arg1 is the region number (in case of FLARES, leave it as some number for periodic boxes), arg2 is the relevant tag (snap number), arg3 is FLARES/REF/AGNdT9, arg4 is the text file with the relevant arrys to be written into the hdf5 file and agr5 is the folder you want the files to be saved
 
 
-output_folder="data"
+output_folder="data_test"
 
 ## load your environment (must contain the eagle_IO module)
-source ./venv_fl/bin/activate
+# source ./venv_fl/bin/activate
+source /cosma7/data/dp004/dc-seey1/venvs/pyenv3.9/bin/activate
 # conda activate eagle3p9
 
 
@@ -29,8 +30,8 @@ array=(011_z004p770 010_z005p000 009_z006p000 008_z007p000 007_z008p000 006_z009
 for ii in ${array[@]}
   do
     python3 write_req_arrs.py $SLURM_ARRAY_TASK_ID $ii FLARES $output_folder req_arrs.txt
-    python3 write_particle_derived.py $SLURM_ARRAY_TASK_ID $ii FLARES $output_folder
-    python3 calc_Zlos.py $SLURM_ARRAY_TASK_ID $ii FLARES $output_folder
+    #python3 write_particle_derived.py $SLURM_ARRAY_TASK_ID $ii FLARES $output_folder
+    #python3 calc_Zlos.py $SLURM_ARRAY_TASK_ID $ii FLARES $output_folder
 done
 
 # ### For PERIODIC boxes: REF and AGNdT9

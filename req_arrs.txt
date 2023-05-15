@@ -1,35 +1,37 @@
 #Name,Path,Dtype,Units,Description,CGS
-HalfMassRad,/Subhalo/HalfMassRad,float64,pMpc,Half mass radius in all species,False
-M200,/FOF/Group_M_Crit200,float64,1E10 Msun,M200 of the group,False
-M500,/FOF/Group_M_Crit500,float64,1E10 Msun,M500 of the group,False
-M2500,/FOF/Group_M_Crit2500,float64,1E10 Msun,M2500 of the group,False
-R200,/FOF/Group_R_Crit200,float64,pMpc,R200 of the group,False
-R500,/FOF/Group_R_Crit500,float64,pMpc,R500 of the group,False
-R2500,/FOF/Group_R_Crit2500,float64,pMpc,R2500 of the group,False
-Velocity,/Subhalo/Velocity,float64,km/s,Velocity of the galaxy,False
-BH_ID,/PartType5/ParticleIDs,int64,No units,BH particle ID,False
-BH_Mass,/PartType5/BH_Mass,float64,1E10 Msun,Black hole mass,False
-BH_Mdot,/PartType5/BH_Mdot,float64,Msun/yr,Black hole instantaneous accretion rate,False
-BH_Age,/PartType5/BH_FormationTime,float64,Gyr,Black hole age,False
-BH_Coordinates,/PartType5/Coordinates,float64,cMpc,BH particle coordinates,False
-BH_sml,/PartType5/SmoothingLength,float64,pMpc,BH particle smoothing length,False
-S_ID,/PartType4/ParticleIDs,int64,No units,Star particle ID,False
-S_Coordinates,/PartType4/Coordinates,float64,cMpc,Star particle coordinates,False
-S_Mass,/PartType4/Mass,float64,1E10 Msun,Star particle masses,False
-S_MassInitial,/PartType4/InitialMass,float64,1E10 Msun,Star particle masses at formation time,False
-S_Vel,/PartType4/Velocity,float64,km/s,Star particle peculiar velocity,False
-S_Z,/PartType4/Metallicity,float64,No units,Star particle metallicity,False
-S_Z_smooth,/PartType4/SmoothedMetallicity,float64,No units,Star particle smoothed metallicity,False
-S_sml,/PartType4/SmoothingLength,float64,pMpc,Star particle smoothing length,False
-S_Age,/PartType4/StellarFormationTime,float64,Gyr,Star particle age,False
-G_ID,/PartType0/ParticleIDs,int64,No units,Gas particle ID,False
-G_Coordinates,/PartType0/Coordinates,float64,cMpc,Gas particle coordinates,False
-G_Mass,/PartType0/Mass,float64,1E10 Msun,Gas particle masses,False
-G_SFR,/PartType0/StarFormationRate,float64,Msun/yr,Gas particle star formation rate,False
-G_Vel,/PartType0/Velocity,float64,km/s,Gas particle peculiar velocity,False
-G_Z,/PartType0/Metallicity,float64,No units,Gas particle metallicity,False
-G_Z_smooth,/PartType0/SmoothedMetallicity,float64,No units,Gas particle smoothed metallicity,False
-G_sml,/PartType0/SmoothingLength,float64,pMpc,Gas particle smoothing length,False
-DM_ID,/PartType1/ParticleIDs,int64,No units,DM particle ID,False
-DM_Coordinates,/PartType1/Coordinates,float32,cMpc,DM particle coordinates,False
-DM_Vel,/PartType1/Velocity,float64,km/s,DM particle peculiar velocity,False
+# HalfMassRad,/Subhalo/HalfMassRad,float64,pMpc,Half mass radius in all species,False
+# M200,/FOF/Group_M_Crit200,float64,1E10 Msun,M200 of the group,False
+# M500,/FOF/Group_M_Crit500,float64,1E10 Msun,M500 of the group,False
+# M2500,/FOF/Group_M_Crit2500,float64,1E10 Msun,M2500 of the group,False
+# R200,/FOF/Group_R_Crit200,float64,pMpc,R200 of the group,False
+# R500,/FOF/Group_R_Crit500,float64,pMpc,R500 of the group,False
+# R2500,/FOF/Group_R_Crit2500,float64,pMpc,R2500 of the group,False
+# Velocity,/Subhalo/Velocity,float64,km/s,Velocity of the galaxy,False
+# BH_ID,/PartType5/ParticleIDs,int64,No units,BH particle ID,False
+# BH_Mass,/PartType5/BH_Mass,float64,1E10 Msun,Black hole mass,False
+BH_Mdot,/PartType5/BH_Mdot,float64,Msun/yr,Black hole instantaneous accretion rate,True
+# BH_Age,/PartType5/BH_FormationTime,float64,Gyr,Black hole age,False
+# BH_Coordinates,/PartType5/Coordinates,float64,cMpc,BH particle coordinates,False
+# BH_sml,/PartType5/SmoothingLength,float64,pMpc,BH particle smoothing length,False
+# S_ID,/PartType4/ParticleIDs,int64,No units,Star particle ID,False
+# S_Coordinates,/PartType4/Coordinates,float64,cMpc,Star particle coordinates,False
+# S_Mass,/PartType4/Mass,float64,1E10 Msun,Star particle masses,False
+# S_MassInitial,/PartType4/InitialMass,float64,1E10 Msun,Star particle masses at formation time,False
+# S_Vel,/PartType4/Velocity,float64,km/s,Star particle peculiar velocity,False
+# S_Z,/PartType4/Metallicity,float64,No units,Star particle metallicity,False
+# S_Z_smooth,/PartType4/SmoothedMetallicity,float64,No units,Star particle smoothed metallicity,False
+S_O_Abundance_smooth,/PartType4/SmoothedElementAbundance/Oxygen,float64,No units,Star particle smoothed oxygen abundance,False
+S_Fe_Abundance_smooth,/PartType4/SmoothedElementAbundance/Iron,float64,No units,Star particle smoothed iron abundance,False
+# S_sml,/PartType4/SmoothingLength,float64,pMpc,Star particle smoothing length,False
+# S_Age,/PartType4/StellarFormationTime,float64,Gyr,Star particle age,False
+# G_ID,/PartType0/ParticleIDs,int64,No units,Gas particle ID,False
+# G_Coordinates,/PartType0/Coordinates,float64,cMpc,Gas particle coordinates,False
+# G_Mass,/PartType0/Mass,float64,1E10 Msun,Gas particle masses,False
+# G_SFR,/PartType0/StarFormationRate,float64,Msun/yr,Gas particle star formation rate,False
+# G_Vel,/PartType0/Velocity,float64,km/s,Gas particle peculiar velocity,False
+# G_Z,/PartType0/Metallicity,float64,No units,Gas particle metallicity,False
+# G_Z_smooth,/PartType0/SmoothedMetallicity,float64,No units,Gas particle smoothed metallicity,False
+# G_sml,/PartType0/SmoothingLength,float64,pMpc,Gas particle smoothing length,False
+# DM_ID,/PartType1/ParticleIDs,int64,No units,DM particle ID,False
+# DM_Coordinates,/PartType1/Coordinates,float32,cMpc,DM particle coordinates,False
+# DM_Vel,/PartType1/Velocity,float64,km/s,DM particle peculiar velocity,False

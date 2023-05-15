@@ -40,7 +40,8 @@ if __name__ == "__main__":
     fl.create_group(tag)
     if inp == 'FLARES':
         dir = fl.directory
-        sim = F"{dir}GEAGLE_{num}/data/"
+        #sim = F"{dir}GEAGLE_{num}/data/"
+        sim = F"{dir}flares_{num}/data/"
 
     elif inp == 'REF':
         sim = fl.ref_directory
@@ -123,12 +124,26 @@ if __name__ == "__main__":
         if 'coordinates' in path.lower(): out = out.T/a
         if 'velocity' in path.lower(): out = out.T
         # if 'halfmassrad' in path.lower(): out = out.T
+        print('name:', name)
         if name=='BH_Mdot':
+            # factor h has been accounted for in
+            print('CONVERTING BH_MDOT!')
+            print('before:',out[0:5])
             out = h*(out.astype(np.float64)*(u.g/u.s)).to(u.M_sun/u.yr).value
+            #out = (out.astype(np.float64)*(u.g/u.s)).to(u.M_sun/u.yr).value
+            #import astropy.constants as constants
+            #import astropy.units as units
+            #out *= h * 6.445909132449984E23
+            #out = out/const.M_sun.to('g').value
+            #out *= u.yr.to('s')
+            print('after:',out[0:5])
 
-        fl.create_dataset(out, name, '{}/{}/{}'.format(num, tag, location), dtype=dtype,
+        print('filename:', filename)
+        print(num, tag, location)
+        #fl.create_dataset(out, name, '{}/{}/{}'.format(num, tag, location), dtype=dtype,
+        fl.create_dataset(out, name, '{}/{}'.format(tag, location), dtype=dtype,
                           desc = desc.encode('utf-8'), unit = unit.encode('utf-8'),
-                          overwrite=overwrite)
+                          overwrite=overwrite, verbose=True)
 
         del out
 

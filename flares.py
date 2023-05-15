@@ -2,7 +2,7 @@ import os
 from functools import partial
 
 import numpy as np
-from numba import jit, njit, float64, int32, prange
+# from numba import jit, njit, float64, int32, prange
 import h5py
 from astropy.cosmology import Planck13 as cosmo
 from astropy import units as u
@@ -28,7 +28,8 @@ class flares:
 
         #Put down the sim root location here
         #self.directory = '/cosma7/data/dp004/dc-payy1/G-EAGLE/GEAGLE_'
-        self.directory = '/cosma7/data/dp004/dc-payy1/G-EAGLE/'
+        #self.directory = '/cosma7/data/dp004/dc-payy1/G-EAGLE/'
+        self.directory = '/cosma7/data/dp004/FLARES/FLARES-1/'
         self.graph_directory = '/cosma7/data/dp004/FLARES/FLARES-1/MergerGraphs/'
         self.ref_directory = '/cosma7/data//Eagle/ScienceRuns/Planck1/L0100N1504/PE/REFERENCE/data'
         self.agn_directory = '/cosma7/data/Eagle/ScienceRuns/Planck1/L0050N0752/PE/S15_AGNdT9/data'
@@ -372,6 +373,8 @@ class flares:
                     dset.attrs['Description'] = desc
                 if unit is not None:
                     dset.attrs['Units'] = unit
+
+                print(f'added {name}, {values[0:5]}... to {self.fname}. dtype = {dtype}')
 
         except Exception as e:
             print("Oh! something went wrong while creating {}/{} or it already exists.\

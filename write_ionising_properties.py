@@ -89,7 +89,8 @@ if __name__ == "__main__":
     log10Q = np.zeros(len(sbegin))
     log10xi = np.zeros(len(sbegin))
     U = np.zeros(len(sbegin))
-    YS_massweightedZ = np.zeros(len(sbegin))
+    S_QweightedZ = np.zeros(len(sbegin))
+    #YS_massweightedZ = np.zeros(len(sbegin))
 
     
     model = models.define_model('BPASSv2.2.1.binary/ModSalpeter_300')
@@ -98,11 +99,11 @@ if __name__ == "__main__":
     for jj in range(len(sbegin)):
 
         this_age = S_age[sbegin[jj]:send[jj]][S_ap_bool[sbegin[jj]:send[jj]]]
-        young_stars = this_age < 10 # keep young stars (<10Myr)
+        #young_stars = this_age < 10 # keep young stars (<10Myr)
         this_smass = S_mass[sbegin[jj]:send[jj]][S_ap_bool[sbegin[jj]:send[jj]]]
-        this_ysmass = this_smass[young_stars]
+        #this_ysmass = this_smass[young_stars]
         this_sZ = S_Z[sbegin[jj]:send[jj]][S_ap_bool[sbegin[jj]:send[jj]]]
-        this_ysZ    = this_sZ[young_stars]
+        #this_ysZ    = this_sZ[young_stars]
 
         # get ionising emissivity [log10(s^-1)]
         log10Q[jj] = models.generate_log10Q(model, this_smass, this_age, this_sZ)
@@ -121,8 +122,11 @@ if __name__ == "__main__":
         Us = ref_U * (Qs/ref_Qs)**(1/3)
         U[jj] = np.sum(Qs*Us)/np.sum(Qs)
 
+        # get ionising emissivity-weighted stellar metallicity
+        S_QweightedZ = np.sum(Qs*this_sZ)/np.sum(Qs)
+
         # get mean weighted metallicity
-        YS_massweightedZ[jj] = np.sum(this_ysmass*this_ysZ)/np.sum(this_ysmass)
+        #YS_massweightedZ[jj] = np.sum(this_ysmass*this_ysZ)/np.sum(this_ysmass)
 
 
     # save data
@@ -135,6 +139,10 @@ if __name__ == "__main__":
     save_to_hdf5(num, tag, U, 'IonisationParameter', 'Ionising parameter',
                  group=f'Galaxy', inp=inp, unit='No unit', data_folder=data_folder, overwrite=True)
 
-    save_to_hdf5(num, tag, YS_massweightedZ, 'MassWeightedYoungStellarZ',
-                 'Initial mass-weighted stellar metallicity of young stellar partiles (<10Myr) within 30 pkpc aperture',
+    save_to_hdf5(num, tag, S_QweightedZ, 'IonWeightedStellarZ',
+                 'Ionising emissivity-weighted stellar metallicity within 30 pkpc aperture',
                  group=f'Galaxy/Metallicity', inp=inp, unit='No unit', data_folder=data_folder, overwrite=True)
+
+    #save_to_hdf5(num, tag, YS_massweightedZ, 'MassWeightedYoungStellarZ',
+    #             'Initial mass-weighted stellar metallicity of young stellar partiles (<10Myr) within 30 pkpc aperture',
+    #             group=f'Galaxy/Metallicity', inp=inp, unit='No unit', data_folder=data_folder, overwrite=True)
