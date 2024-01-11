@@ -8,6 +8,7 @@ from numba import jit, njit, float64, int32, prange
 import h5py
 from functools import partial
 import schwimmbad
+from scipy.spatial import cKDTree
 from astropy.cosmology import Planck13 as cosmo
 from astropy import units as u
 
@@ -29,15 +30,19 @@ def old_cal_ZLOS(cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
         g_mass (1d array): gas particle mass
         g_Z (1d array): gas particle metallicity
         g_sml (1d array): gas particle smoothing length
+        lkernel: kernel look-up table
+        kbins: number of bins in the look-up table
 
     """
     n = len(cood)
     Z_los_SD = np.zeros(n)
-    #Fixing the observer direction as z-axis.
+    # Fixing the observer direction as z-axis.
+    # Associate direction with column in coord array
     xdir, ydir, zdir = 0, 1, 2
     for ii in prange(n):
 
         thispos = cood[ii]
+        # Don't need gas particles behind stellar particle (z dir)
         ok = np.where(g_cood[:,zdir] > thispos[zdir])[0]
         thisgpos = g_cood[ok]
         thisgsml = g_sml[ok]
@@ -46,16 +51,20 @@ def old_cal_ZLOS(cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins):
         x = thisgpos[:,xdir] - thispos[xdir]
         y = thisgpos[:,ydir] - thispos[ydir]
 
+        # Get impact parameter and divide by smoothing length
         b = np.sqrt(x*x + y*y)
         boverh = b/thisgsml
 
+        # Want smoothing length > impact parameter
         ok = np.where(boverh <= 1.)[0]
+
+        # Get kernel values from look-up table
         kernel_vals = np.array([lkernel[int(kbins*ll)] for ll in boverh[ok]])
 
         Z_los_SD[ii] = np.sum((thisgmass[ok]*thisgZ[ok]/(thisgsml[ok]*thisgsml[ok]))*kernel_vals) #in units of Msun/Mpc^2
 
-
     return Z_los_SD
+
 
 def cal_ZLOS_kd(req_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins,
                  dimens=(0, 1, 2)):
@@ -104,7 +113,7 @@ def cal_ZLOS_kd(req_cood, g_cood, g_mass, g_Z, g_sml, lkernel, kbins,
         g_inds = gas_nbours.pop(s_ind)
 
         # Extract data for these particles
-        thisspos = req_cood[_ind]
+        thisspos = req_cood[s_ind]
         thisgpos = g_cood[g_inds]
         thisgsml = g_sml[g_inds]
         thisgZ = g_Z[g_inds]
@@ -144,11 +153,11 @@ def get_data(ii, tag, inp = 'FLARES', data_folder='data/', aperture=30):
         sim_type = 'FLARES'
 
 
-    elif inp == 'REF' or inp == 'AGNdT9':
+    elif (inp == 'REF') or (inp == 'AGNdT9') or ('RECAL' in inp):
         filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
 
-    print (filename)
+    print (tag, filename)
 
     with h5py.File(filename, 'r') as hf:
         S_len   = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
@@ -181,8 +190,6 @@ def get_len(Length):
 
 
 def get_ZLOS(jj, req_coords, begin, end, ap, G_coords, G_mass, G_Z, G_sml, gbegin, gend, lkernel, kbins, G_ap):
-
-
 
     this_coords = req_coords[begin[jj]:end[jj]][ap[begin[jj]:end[jj]]]
 
@@ -223,12 +230,14 @@ if __name__ == "__main__":
         filename = './{}/FLARES_{}_sp_info.hdf5'.format(data_folder,num)
         sim_type = 'FLARES'
 
-    elif inp == 'REF' or inp == 'AGNdT9':
+    elif (inp == 'REF') or (inp == 'AGNdT9') or ('RECAL' in inp):
         filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
 
-    fl = flares.flares(fname = filename,sim_type = sim_type)
+    else:
+        ValueError("Type of input simulation not recognized")
 
+    fl = flares.flares(fname = filename,sim_type = sim_type)
 
     S_coords, G_coords, G_mass, G_sml, G_Z, S_len, G_len, BH_len, BH_coords, S_ap, G_ap, BH_ap = get_data(num, tag, inp=inp, data_folder=data_folder, aperture=aperture)
 

@@ -32,6 +32,7 @@ class flares:
         self.graph_directory = '/cosma7/data/dp004/FLARES/FLARES-1/MergerGraphs/'
         self.ref_directory = '/cosma7/data//Eagle/ScienceRuns/Planck1/L0100N1504/PE/REFERENCE/data'
         self.agn_directory = '/cosma7/data/Eagle/ScienceRuns/Planck1/L0050N0752/PE/S15_AGNdT9/data'
+        self.recal25_directory = '/cosma7/data/Eagle/ScienceRuns/Planck1/L0025N0752/PE/RECALIBRATED/data'
 
         self.cosmo = cosmo
 
@@ -339,7 +340,7 @@ class flares:
                 hdr = h5f[hdr_name]
             for ii in value.keys():
                 hdr.attrs[ii] = value[ii]
-            
+
                 #sys.exit()
 
 

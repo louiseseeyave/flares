@@ -7,10 +7,12 @@ R200,/FOF/Group_R_Crit200,float64,pMpc,R200 of the group,False
 R500,/FOF/Group_R_Crit500,float64,pMpc,R500 of the group,False
 R2500,/FOF/Group_R_Crit2500,float64,pMpc,R2500 of the group,False
 Velocity,/Subhalo/Velocity,float64,km/s,Velocity of the galaxy,False
-BH_Mdot,/PartType5/BH_Mdot,float64,Msun/yr,Most massive black hole instantaneous accretion rate,True
-BH_Age,/PartType5/BH_FormationTime,float64,Gyr,Most massive black hole age,False
-BH_Coordinates,/PartType5/Coordinates,float64,cMpc,Coordinates of the most massive black hole,False
-BH_sml,/PartType5/SmoothingLength,float64,pMpc,Smoothing length of the most massive black hole,False
+BH_ID,/PartType5/ParticleIDs,int64,No units,BH particle ID,False
+BH_Mass,/PartType5/BH_Mass,float64,1E10 Msun,Black hole mass,False
+BH_Mdot,/PartType5/BH_Mdot,float64,Msun/yr,Black hole instantaneous accretion rate,False
+BH_Age,/PartType5/BH_FormationTime,float64,Gyr,Black hole age,False
+BH_Coordinates,/PartType5/Coordinates,float64,cMpc,BH particle coordinates,False
+BH_sml,/PartType5/SmoothingLength,float64,pMpc,BH particle smoothing length,False
 S_ID,/PartType4/ParticleIDs,int64,No units,Star particle ID,False
 S_Coordinates,/PartType4/Coordinates,float64,cMpc,Star particle coordinates,False
 S_Mass,/PartType4/Mass,float64,1E10 Msun,Star particle masses,False
