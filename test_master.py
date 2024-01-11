@@ -3,8 +3,8 @@
 import h5py
 
 
-f = '/cosma7/data/dp004/dc-love2/codes/flares/data/flares.hdf5'
-
+# f = '/cosma7/data/dp004/dc-love2/codes/flares/data/flares.hdf5'
+f = '/cosma7/data/dp004/dc-payy1/my_files/flares_pipeline/data/flares.hdf5'
 
 # with h5py.File(f, mode='r') as hf:
 #
