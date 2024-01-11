@@ -31,3 +31,10 @@ G_sml,/PartType0/SmoothingLength,float64,pMpc,Gas particle smoothing length,Fals
 DM_ID,/PartType1/ParticleIDs,int64,No units,DM particle ID,False
 DM_Coordinates,/PartType1/Coordinates,float32,cMpc,DM particle coordinates,False
 DM_Vel,/PartType1/Velocity,float64,km/s,DM particle peculiar velocity,False
+S_Abundance_Oxygen,/PartType4/SmoothedElementAbundance/Oxygen,float64,abundance,Stellar Oxygen abundance,False
+S_Abundance_Iron,/PartType4/SmoothedElementAbundance/Iron,float64,abundance,Stellar Iron abundance,False
+S_Abundance_Hydrogen,/PartType4/SmoothedElementAbundance/Hydrogen,float64,abundance,Stellar Hydrogen abundance,False
+G_Abundance_Oxygen,/PartType0/SmoothedElementAbundance/Oxygen,float64,abundance,Gas-phase Oxygen abundance,False
+G_Abundance_Iron,/PartType0/SmoothedElementAbundance/Iron,float64,abundance,Gas-phase Iron abundance,False
+G_Abundance_Hydrogen,/PartType0/SmoothedElementAbundance/Hydrogen,float64,abundance,Gas-phase Hydrogen abundance,False
+
