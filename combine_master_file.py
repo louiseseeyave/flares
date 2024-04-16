@@ -21,9 +21,7 @@ with h5py.File('./data/flares.hdf5','a') as outfile:
             outfile[halo].attrs[key] = value[0]
 
 
-        infile = h5py.File('%s/FLARES_%s_sp_info.hdf5'%(in_dir,halo),'r')
+        with h5py.File('%s/FLARES_%s_sp_info.hdf5'%(in_dir,halo),'r') as infile:
+            for tag in fl.tags:
+                infile.copy(tag,outfile[halo])
 
-        for tag in fl.tags:
-            infile.copy(tag,outfile[halo])
-
-        infile.close()

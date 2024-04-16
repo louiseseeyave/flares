@@ -35,20 +35,40 @@ def get_data(ii, tag, inp = 'FLARES', data_folder = 'data', aperture = '30'):
     else:
         sim = rF"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
 
+
     with h5py.File(sim, 'r') as hf:
+
         S_len   = np.array(hf[tag+'/Galaxy'].get('S_Length'), dtype = np.int64)
+    
+        begin       = np.zeros(len(S_len), dtype = np.int64)
+        end         = np.zeros(len(S_len), dtype = np.int64)
+        begin[1:]   = np.cumsum(S_len)[:-1]
+        end         = np.cumsum(S_len)
+
         DTM     = np.array(hf[tag+'/Galaxy'].get('DTM'), dtype = np.float64)
         S_mass  = np.array(hf[tag+'/Particle'].get('S_MassInitial'), dtype = np.float64)*1e10
         S_Z     = np.array(hf[tag+'/Particle'].get('S_Z_smooth'), dtype = np.float64)
         S_age   = np.array(hf[tag+'/Particle'].get('S_Age'), dtype = np.float64)*1e3
         S_los   = np.array(hf[tag+'/Particle'].get('S_los'), dtype = np.float64)
-        S_ap    = np.array(hf[tag+'/Particle/Apertures/Star'].get(F'{aperture}'), dtype = np.bool)
 
+        S_ap = {}
+        if aperture == 'halfmassradius':
+            half_mass_rad = np.array(hf[tag+'/Galaxy'].get('HalfMassRad'), dtype = np.float64)
+            gsize = half_mass_rad[:,4] * 4 * 1e3
+            apertures = np.array([1,3,5,10,20,30,40,50,70,100])
+            ap_use = np.abs(np.array([gsize - _ap for _ap in apertures])).argmin(axis=0)
+            
+            ap = {}
+            for _ap in apertures:
+                ap[_ap] = np.array(hf[tag+'/Particle/Apertures/Star'].get(F'{_ap}'), dtype = np.bool)
 
-    begin       = np.zeros(len(S_len), dtype = np.int64)
-    end         = np.zeros(len(S_len), dtype = np.int64)
-    begin[1:]   = np.cumsum(S_len)[:-1]
-    end         = np.cumsum(S_len)
+            for i, j in enumerate(begin):
+                S_ap[i] = ap[apertures[ap_use[i]]][begin[i]:end[i]]
+
+        else:
+            ap = np.array(hf[tag+'/Particle/Apertures/Star'].get(F'{aperture}'), dtype = np.bool)
+            for i, j in enumerate(begin):
+                S_ap[i] = ap[begin[i]:end[i]]
 
     return S_mass, S_Z, S_age, S_los, S_len, begin, end, S_ap, DTM
 
@@ -89,10 +109,10 @@ def lum(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', LF = True
 
     for jj in range(len(begin)):
 
-        Masses              = S_mass[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
-        Ages                = S_age[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
-        Metallicities       = S_Z[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
-        MetSurfaceDensities = S_los[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        Masses              = S_mass[begin[jj]:end[jj]][S_ap[jj]] # [S_ap[begin[jj]:end[jj]]]
+        Ages                = S_age[begin[jj]:end[jj]][S_ap[jj]] # [S_ap[begin[jj]:end[jj]]]
+        Metallicities       = S_Z[begin[jj]:end[jj]][S_ap[jj]] # [S_ap[begin[jj]:end[jj]]]
+        MetSurfaceDensities = S_los[begin[jj]:end[jj]][S_ap[jj]] # [S_ap[begin[jj]:end[jj]]]
 
         MetSurfaceDensities = DTM[jj] * MetSurfaceDensities
 
@@ -164,10 +184,10 @@ def flux(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', filters 
 
     for jj in range(len(begin)):
 
-        Masses              = S_mass[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
-        Ages                = S_age[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
-        Metallicities       = S_Z[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
-        MetSurfaceDensities = S_los[begin[jj]:end[jj]][S_ap[begin[jj]:end[jj]]]
+        Masses              = S_mass[begin[jj]:end[jj]][S_ap[jj]] # [S_ap[begin[jj]:end[jj]]]
+        Ages                = S_age[begin[jj]:end[jj]][S_ap[jj]] # [S_ap[begin[jj]:end[jj]]]
+        Metallicities       = S_Z[begin[jj]:end[jj]][S_ap[jj]] # [S_ap[begin[jj]:end[jj]]]
+        MetSurfaceDensities = S_los[begin[jj]:end[jj]][S_ap[jj]] # [S_ap[begin[jj]:end[jj]]]
 
         MetSurfaceDensities = DTM[jj] * MetSurfaceDensities
 
@@ -326,12 +346,12 @@ def get_SED(sim, kappa, tag, BC_fac, inp = 'FLARES', IMF = 'Chabrier_300', log10
 
 def get_lum(sim, kappa, tag, BC_fac, IMF = 'Chabrier_300', bins = np.arange(-24, -16, 0.5), inp = 'FLARES', LF = True, filters = ['FAKE.TH.FUV'], Type = 'Total', log10t_BC = 7., extinction = 'default', data_folder = 'data', aperture='30'):
 
-    try:
-        Lums = lum(sim, kappa, tag, BC_fac = BC_fac, IMF=IMF, inp=inp, LF=LF, filters=filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
+    # try:
+    Lums = lum(sim, kappa, tag, BC_fac = BC_fac, IMF=IMF, inp=inp, LF=LF, filters=filters, Type = Type, log10t_BC = log10t_BC, extinction = extinction, data_folder = data_folder, aperture = aperture)
 
-    except Exception as e:
-        Lums = np.ones(len(filters))*np.nan
-        print (e)
+    # except Exception as e:
+    #     Lums = np.ones(len(filters))*np.nan
+    #     print (e)
 
 
     if LF:

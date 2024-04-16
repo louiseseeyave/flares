@@ -18,8 +18,6 @@ import numpy as np
 import h5py
 
 
-
-
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
 
@@ -89,11 +87,10 @@ def get_files_make_dir(directory, outdir, tag, fileType):
     
     infiles = sorted(files, key=lambda x: int(re.findall("(\d+)", x)[-2]))
 
-    if os.path.isfile(outfile):
+    if os.path.isfile(f"{outdir}/{outfile}"):
         if query_yes_no("File already exists. Remove?"):
-            os.remove(outfile)
-        else:
-            raise ValueError("File note removed, exiting.")
+            os.remove(f"{outdir}/{outfile}")
+        else: raise ValueError("File note removed, exiting.")
 
     return infiles, outfile
 
@@ -147,14 +144,39 @@ def combine_files(directory, tag, fileType, outdir):
              
             hf_in.visititems(visitor_func)  
 
+    return outfile
+
+
+def update_gadget_header(outfile):
+    with h5py.File(outfile,'a') as hf:
+        if 'ToTNids' in hf['Header'].attrs.keys(): 
+            hf['Header'].attrs["Nids"] = hf['Header'].attrs["ToTNids"]
+        if 'TotNids' in hf['Header'].attrs.keys(): 
+            hf['Header'].attrs["Nids"] = hf['Header'].attrs["TotNids"]
+        if 'TotNsubgroups' in hf['Header'].attrs.keys():
+            hf['Header'].attrs["Nsubgroups"] = hf['Header'].attrs["TotNsubgroups"]
+        if 'TotNgroups' in hf['Header'].attrs.keys():
+            hf['Header'].attrs["Ngroups"] = hf['Header'].attrs["TotNgroups"]
+        if 'NumFilesPerSnapshot' in hf['Header'].attrs.keys():
+            hf['Header'].attrs["NumFilesPerSnapshot"] = 1
+        if 'NumPart_Total' in hf['Header'].attrs.keys():
+            hf['Header'].attrs["NumPart_ThisFile"] = hf['Header'].attrs["NumPart_Total"]
+
 
 if __name__ == "__main__":
 
     directory = sys.argv[1] 
-    tag = sys.argv[2] 
+    outdir = sys.argv[2]
     fileType = sys.argv[3]
-    outdir = sys.argv[4]
+
+    # tag = sys.argv[2]
+    # outfile = combine_files(directory, tag, fileType, outdir)
+    # update_gadget_header(outfile)
     
-    combine_files(directory, tag, fileType, outdir)
+    import flares
+    fl = flares.flares(fname='../../flares/data/flares.h5')
+    for tag in fl.tags:
+        outfile = combine_files(directory, tag, fileType, outdir)
+        update_gadget_header(f"{outdir}/{outfile}")
 
 

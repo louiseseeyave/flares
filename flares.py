@@ -64,7 +64,9 @@ class flares:
         elif sim_type=="PERIODIC":
             self.tags = np.array(['002_z009p993','003_z008p988',
                                   '004_z008p075','005_z007p050','006_z005p971',
-                                  '008_z005p037'])
+                                  '008_z005p037',
+                                  '010_z003p984', '012_z003p017',
+                                  '015_z002p012', '019_z001p004'])
 
             self.zeds = [float(tag[5:].replace('p','.')) for tag in self.tags]
 
@@ -196,10 +198,9 @@ class flares:
     """
 
     def get_star_formation_time(self, SFT):
+        SFz = (1/SFT) - 1.  # convert scale factor to z
+        return self.cosmo.age(SFz).value
 
-        SFz = (1/SFT) - 1.
-        SFz = self.cosmo.age(SFz).value
-        return SFz
 
     def get_age(self, arr, z, numThreads = 4):
 

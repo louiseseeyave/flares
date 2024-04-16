@@ -57,11 +57,11 @@ if __name__ == "__main__":
 
     with h5py.File(filename, 'r') as hf:
         ok_centrals = np.array(hf[tag+'/Galaxy'].get('Central_Indices'), dtype = np.int64)
-        indices     = np.array(hf[tag+'/Galaxy'].get('Indices'), dtype = np.int64)
-        dindex      = np.array(hf[tag+'/Particle'].get('DM_Index'), dtype = np.int64)
-        sindex      = np.array(hf[tag+'/Particle'].get('S_Index'), dtype = np.int64)
-        gindex      = np.array(hf[tag+'/Particle'].get('G_Index'), dtype = np.int64)
-        bhindex     = np.array(hf[tag+'/Particle'].get('BH_Index'), dtype = np.int64)
+        indices = np.array(hf[tag+'/Galaxy'].get('Indices'), dtype = np.int64)
+        # dindex = np.array(hf[tag+'/Particle'].get('DM_Index'), dtype = np.int64)
+        # sindex = np.array(hf[tag+'/Particle'].get('S_Index'), dtype = np.int64)
+        # gindex = np.array(hf[tag+'/Particle'].get('G_Index'), dtype = np.int64)
+        # bhindex = np.array(hf[tag+'/Particle'].get('BH_Index'), dtype = np.int64)
 
     nThreads=8
     a = E.read_header('SUBFIND', sim, tag, 'ExpansionFactor')
@@ -81,13 +81,17 @@ if __name__ == "__main__":
             tmp = 'PARTDATA'
             location = 'Particle'
             if 'PartType0' in path:
-                sel = gindex
+                with h5py.File(filename, 'r') as hf:
+                    sel = np.array(hf[tag+'/Particle'].get('G_Index'), dtype = np.int64)
             elif 'PartType1' in path:
-                sel = dindex
+                with h5py.File(filename, 'r') as hf:
+                    sel = np.array(hf[tag+'/Particle'].get('DM_Index'), dtype = np.int64)
             elif 'PartType4' in path:
-                sel = sindex
+                with h5py.File(filename, 'r') as hf:
+                    sel = np.array(hf[tag+'/Particle'].get('S_Index'), dtype = np.int64)
             elif 'PartType5' in path:
-                sel = bhindex
+                with h5py.File(filename, 'r') as hf:
+                    sel = np.array(hf[tag+'/Particle'].get('BH_Index'), dtype = np.int64)
         else:
             tmp = 'SUBFIND'
             location = 'Galaxy'
