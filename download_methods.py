@@ -59,6 +59,8 @@ def extract_info(num, tag, inp='FLARES'):
 
     print (F"Extracing information from {inp} {num} {tag} (rank: {rank}, size: {size})")
 
+    stellar_mass_cut = 10**7.
+
     if inp == 'FLARES':
         sim_type = 'FLARES'
         fl = flares.flares(fname = './data/',sim_type=sim_type)
@@ -74,6 +76,12 @@ def extract_info(num, tag, inp='FLARES'):
         sim_type = 'PERIODIC'
         fl = flares.flares(fname = './data/',sim_type=sim_type)
         sim = fl.agn_directory
+
+    elif 'RECAL' in inp:
+        sim_type = 'PERIODIC'
+        fl = flares.flares(fname = './data/',sim_type=sim_type)
+        sim = vars(fl)[F'{inp.lower()}_directory']
+        stellar_mass_cut = 10**6.
 
     else:
         ValueError("Type of input simulation not recognized")
@@ -98,10 +106,10 @@ def extract_info(num, tag, inp='FLARES'):
         ## Selecting the subhalos within our region
         cop = E.read_array('SUBFIND', sim, tag, '/Subhalo/CentreOfPotential', noH=False, physicalUnits=False, numThreads=4) #units of cMpc/h
         cen, r, min_dist = fl.spherical_region(sim, tag)  #units of cMpc/h
-        indices = np.where((mstar*1e10 >= 10**7.) & (norm(cop-cen, axis=1)<=fl.radius))[0]
+        indices = np.where((mstar*1e10 >= stellar_mass_cut) & (norm(cop-cen, axis=1)<=fl.radius))[0]
 
     else:
-        indices = np.where(mstar*1e10 >= 10**7.)[0]
+        indices = np.where(mstar*1e10 >= stellar_mass_cut)[0]
 
     cop = E.read_array('SUBFIND', sim, tag, '/Subhalo/CentreOfPotential', noH=True, physicalUnits=True, numThreads=4)
     # sfr_inst =  E.read_array('SUBFIND', sim, tag, '/Subhalo/ApertureMeasurements/SFR/030kpc', numThreads=4, noH=True, physicalUnits=True)
@@ -118,7 +126,6 @@ def extract_info(num, tag, inp='FLARES'):
     gp_cood = E.read_array('PARTDATA', sim, tag, '/PartType0/Coordinates', noH=True, physicalUnits=True, numThreads=4)
     gp_sgrpn = E.read_array('PARTDATA', sim, tag, '/PartType0/SubGroupNumber', numThreads=4)
     gp_grpn = E.read_array('PARTDATA', sim, tag, '/PartType0/GroupNumber', numThreads=4)
-    gp_sfr = E.read_array('PARTDATA', sim, tag, '/PartType0/StarFormationRate', noH=True, physicalUnits=True, numThreads=4)
 
     #Star particle
     try:
@@ -222,7 +229,7 @@ def extract_info(num, tag, inp='FLARES'):
         #Size needs to be a perfect cube to work
         l = boxl / (size)**(1/3)
         sz = (size)**(1/3)
-        dl = 10.
+        dl = 5
         xyz = np.zeros((size,8,3))
         count=0
         for xx in range(int(sz)):
@@ -244,7 +251,7 @@ def extract_info(num, tag, inp='FLARES'):
         # print (thisok, rank, max_xyz, min_xyz)
         # print (cop[thisok])
 
-        #Dividing the gas particles into a cell for current task
+        #Dividing the DM particles into a cell for current task
         dd = np.ones(len(dm_cood), dtype=bool)
         for xx in range(3):
             dd*=np.logical_or((min_xyz[xx]-dl<=dm_cood[:,xx]/a)*(dm_cood[:,xx]/a<=max_xyz[xx]+dl), np.logical_or((min_xyz[xx]-dl<=dm_cood[:,xx]/a+boxl)*(dm_cood[:,xx]/a+boxl<=max_xyz[xx]+dl), (min_xyz[xx]-dl<=dm_cood[:,xx]/a-boxl)*(dm_cood[:,xx]/a-dl<=max_xyz[xx]+dl)))
@@ -254,6 +261,7 @@ def extract_info(num, tag, inp='FLARES'):
         dm_sgrpn = dm_sgrpn[dd]
         dm_grpn = dm_grpn[dd]
 
+        #Dividing the gas particles into a cell for current task
         gg = np.ones(len(gp_cood), dtype=bool)
         for xx in range(3):
             gg*=np.logical_or((min_xyz[xx]-dl<=gp_cood[:,xx]/a)*(gp_cood[:,xx]/a<=max_xyz[xx]+dl), np.logical_or((min_xyz[xx]-dl<=gp_cood[:,xx]/a+boxl)*(gp_cood[:,xx]/a+boxl<=max_xyz[xx]+dl), (min_xyz[xx]-dl<=gp_cood[:,xx]/a-boxl)*(gp_cood[:,xx]/a-dl<=max_xyz[xx]+dl)))
@@ -262,7 +270,6 @@ def extract_info(num, tag, inp='FLARES'):
         gp_cood = gp_cood[gg]
         gp_sgrpn = gp_sgrpn[gg]
         gp_grpn = gp_grpn[gg]
-        gp_sfr = gp_sfr[gg]
 
         #Dividing the star particles into a cell for current task
         if SP:
@@ -442,7 +449,7 @@ def extract_info(num, tag, inp='FLARES'):
 
     ##End of loop ii, jj##
 
-    del dm_sgrpn, dm_grpn, dm_cood, gp_sgrpn, gp_grpn, gp_cood, gp_sfr
+    del dm_sgrpn, dm_grpn, dm_cood, gp_sgrpn, gp_grpn, gp_cood
     if SP: del sp_sgrpn, sp_grpn, sp_cood
     if BH: del bh_sgrpn, bh_grpn, bh_cood
 
@@ -537,11 +544,9 @@ def save_to_hdf5(num, tag, dset, name, desc, dtype = None, unit = '', group = 'G
         filename = './{}/FLARES_{}_sp_info.hdf5'.format(data_folder, num)
         sim_type = 'FLARES'
 
-
-    elif inp == 'REF' or inp == 'AGNdT9':
+    elif inp == 'REF' or inp == 'AGNdT9' or inp == 'RECAL25' or inp == 'RECAL50':
         filename = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
-
 
     else:
         ValueError("Type of input simulation not recognized")
@@ -590,11 +595,15 @@ def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, BH_len, 
         fl = flares.flares(fname = F'./{data_folder}/',sim_type=sim_type)
         sim = fl.agn_directory
 
+    elif 'RECAL' in inp:
+        sim_type = 'PERIODIC'
+        fl = flares.flares(fname = F'./{data_folder}/',sim_type=sim_type)
+        sim = vars(fl)[F'{inp.lower()}_directory']
+
     else:
         ValueError("Type of input simulation not recognized")
 
 
-    # gp_sfr = E.read_array('PARTDATA', sim, tag, '/PartType0/StarFormationRate', noH=True, physicalUnits=True, numThreads=1)
     try:
         gp_mass = E.read_array('PARTDATA', sim, tag, '/PartType0/Mass',
                                noH=True, physicalUnits=True, numThreads=1)
@@ -643,7 +652,6 @@ def recalculate_derived_subhalo_properties(inp, num, tag, S_len, G_len, BH_len, 
         SMass[jj]   = np.sum(sp_mass[S_index[sbegin[jj]:send[jj]]])
         GMass[jj]   = np.sum(gp_mass[G_index[gbegin[jj]:gend[jj]]])
         BHMass[jj]  = np.sum(bh_mass[BH_index[bhbegin[jj]:bhend[jj]]])
-        # total_SFR[jj] = np.sum(gp_sfr[G_index[gbegin[jj]:gend[jj]]])
 
     DMass = D_len * dm_pmass
 
@@ -670,7 +678,7 @@ def get_recent_SFR(num, tag, t = 100, aperture_size = 30, inp = 'FLARES', data_f
     if inp == 'FLARES':
         sim_type = inp
         sim = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
-    elif (inp == 'REF') or (inp == 'AGNdT9'):
+    elif (inp == 'REF') or (inp == 'AGNdT9') or ('RECAL' in inp):
         sim = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
     else:
@@ -756,7 +764,7 @@ def get_aperture_inst_SFR(num, tag, aperture_size = 30, inp = 'FLARES', data_fol
     if inp == 'FLARES':
         sim_type = inp
         sim = F"./{data_folder}/FLARES_{num}_sp_info.hdf5"
-    elif (inp == 'REF') or (inp == 'AGNdT9'):
+    elif (inp == 'REF') or (inp == 'AGNdT9') or ('RECAL' in inp):
         sim = F"./{data_folder}/EAGLE_{inp}_sp_info.hdf5"
         sim_type = 'PERIODIC'
     else:
