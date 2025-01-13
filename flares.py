@@ -2,7 +2,7 @@ import os
 from functools import partial
 
 import numpy as np
-from numba import jit, njit, float64, int32, prange
+# from numba import jit, njit, float64, int32, prange
 import h5py
 from astropy.cosmology import Planck13 as cosmo
 from astropy import units as u
@@ -350,6 +350,7 @@ class flares:
         shape = np.shape(values)
 
         if self._check_hdf5(group) is False:
+            print(f'Group {group}')
             raise ValueError("Group does not exist")
             return False
 
